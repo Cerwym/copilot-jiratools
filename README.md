@@ -47,6 +47,23 @@ dotnet publish -c Release -r <your-runtime> --self-contained
 
 Replace `<your-runtime>` with: `win-x64`, `linux-x64`, `osx-x64`, or `osx-arm64`
 
+### Development
+
+The project follows standard .NET solution structure:
+- `src/JiraTools/` - Main application
+- `tests/JiraTools.Tests/` - Unit tests  
+- `JiraTools.sln` - Solution file
+
+To run tests:
+```bash
+dotnet test
+```
+
+To run the application locally:
+```bash
+dotnet run --project src/JiraTools -- help
+```
+
 ## Features
 
 - Create, update, and transition Jira tasks

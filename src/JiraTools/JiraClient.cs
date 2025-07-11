@@ -7,18 +7,20 @@ using System.Net.Http.Headers;
 using Newtonsoft.Json;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
 
 namespace JiraTools
 {
     /// <summary>
     /// Client for interacting with Jira API
     /// </summary>
-    public class JiraClient
+    public class JiraClient : IJiraClient
     {
         private readonly string _baseUrl;
         private readonly string _username;
         private readonly string _apiToken;
         private readonly HttpClient _httpClient;
+        private readonly ILogger<JiraClient> _logger;
 
         /// <summary>
         /// Creates a new instance of JiraClient
@@ -26,8 +28,10 @@ namespace JiraTools
         /// <param name="baseUrl">Base URL of Jira instance (e.g., https://n-able.atlassian.net)</param>
         /// <param name="username">Jira username (typically email address)</param>
         /// <param name="apiToken">Jira API token</param>
-        public JiraClient(string baseUrl, string username, string apiToken)
+        /// <param name="logger">Logger instance</param>
+        public JiraClient(string baseUrl, string username, string apiToken, ILogger<JiraClient> logger = null)
         {
+            _logger = logger;
             _baseUrl = baseUrl.TrimEnd('/');
             _username = username;
             _apiToken = apiToken;
@@ -391,7 +395,7 @@ namespace JiraTools
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"Error creating issue link: {response.StatusCode} - {errorContent}");
+                _logger?.LogError("Error creating issue link: {StatusCode} - {ErrorContent}", response.StatusCode, errorContent);
                 return false;
             }
 
@@ -424,7 +428,7 @@ namespace JiraTools
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"Error setting parent task: {response.StatusCode} - {errorContent}");
+                _logger?.LogError("Error setting parent task: {StatusCode} - {ErrorContent}", response.StatusCode, errorContent);
                 return false;
             }
 

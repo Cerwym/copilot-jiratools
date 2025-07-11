@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using Microsoft.Extensions.Logging;
 
 namespace JiraTools
 {
@@ -12,13 +13,15 @@ namespace JiraTools
     /// </summary>
     public class WorkflowDiscovery
     {
-        private readonly JiraClient _jiraClient;
+        private readonly IJiraClient _jiraClient;
         private readonly string _workflowCachePath;
+        private readonly ILogger _logger;
         private WorkflowCache _cache;
 
-        public WorkflowDiscovery(JiraClient jiraClient, string projectKey = null)
+        public WorkflowDiscovery(IJiraClient jiraClient, string projectKey = null, ILogger logger = null)
         {
             _jiraClient = jiraClient;
+            _logger = logger;
             
             // Create a cache file specific to the project if provided
             var cacheFileName = string.IsNullOrEmpty(projectKey) 
@@ -44,7 +47,8 @@ namespace JiraTools
                 var currentStatus = await _jiraClient.GetIssueStatusAsync(sampleIssueKey);
                 var issueType = await GetIssueTypeAsync(sampleIssueKey);
                 
-                Console.WriteLine($"Discovering workflow for {issueType} issues from '{currentStatus}' to '{targetStatus}'...");
+                _logger?.LogInformation("Discovering workflow for {IssueType} issues from '{CurrentStatus}' to '{TargetStatus}'...", 
+                    issueType, currentStatus, targetStatus);
 
                 var workflowPath = await TraceWorkflowPathAsync(sampleIssueKey, currentStatus, targetStatus);
                 
@@ -55,7 +59,7 @@ namespace JiraTools
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error discovering workflow: {ex.Message}");
+                _logger?.LogError(ex, "Error discovering workflow: {Message}", ex.Message);
                 return null;
             }
         }
@@ -65,6 +69,9 @@ namespace JiraTools
         /// </summary>
         public async Task<WorkflowPath> GetWorkflowPathAsync(string issueKey, string targetStatus = "Done")
         {
+            if (string.IsNullOrEmpty(issueKey))
+                throw new ArgumentException("Issue key cannot be null or empty", nameof(issueKey));
+            
             try
             {
                 var currentStatus = await _jiraClient.GetIssueStatusAsync(issueKey);
@@ -75,7 +82,7 @@ namespace JiraTools
                 if (_cache.Workflows.ContainsKey(cacheKey))
                 {
                     var cachedPath = _cache.Workflows[cacheKey];
-                    Console.WriteLine($"Using cached workflow path for {issueType} from '{currentStatus}' to '{targetStatus}'");
+                    _logger?.LogInformation("Using cached workflow path for {IssueType} from '{CurrentStatus}' to '{TargetStatus}'", issueType, currentStatus, targetStatus);
                     return cachedPath;
                 }
 
@@ -84,7 +91,7 @@ namespace JiraTools
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error getting workflow path: {ex.Message}");
+                _logger?.LogError("Error getting workflow path: {Message}", ex.Message);
                 return null;
             }
         }
@@ -116,17 +123,20 @@ namespace JiraTools
         /// </summary>
         public async Task<bool> ExecuteWorkflowAsync(string issueKey, WorkflowPath workflowPath, bool interactive = true)
         {
-            if (workflowPath == null || !workflowPath.Steps.Any())
+            if (workflowPath == null)
+                throw new ArgumentNullException(nameof(workflowPath));
+            
+            if (!workflowPath.Steps.Any())
             {
-                Console.WriteLine("No workflow path available to execute.");
+                _logger?.LogWarning("No workflow path available to execute.");
                 return false;
             }
 
-            Console.WriteLine($"Executing workflow path with {workflowPath.Steps.Count} steps:");
+            _logger?.LogInformation("Executing workflow path with {StepCount} steps:", workflowPath.Steps.Count);
             for (int i = 0; i < workflowPath.Steps.Count; i++)
             {
                 var step = workflowPath.Steps[i];
-                Console.WriteLine($"  {i + 1}. {step.FromStatus} → {step.ToStatus} (via '{step.TransitionName}')");
+                _logger?.LogInformation("  {StepNumber}. {FromStatus} → {ToStatus} (via '{TransitionName}')", i + 1, step.FromStatus, step.ToStatus, step.TransitionName);
             }
 
             if (interactive)
@@ -135,7 +145,7 @@ namespace JiraTools
                 var response = Console.ReadLine();
                 if (!string.Equals(response, "y", StringComparison.OrdinalIgnoreCase))
                 {
-                    Console.WriteLine("Workflow execution cancelled.");
+                    _logger?.LogInformation("Workflow execution cancelled.");
                     return false;
                 }
             }
@@ -144,7 +154,7 @@ namespace JiraTools
             {
                 foreach (var step in workflowPath.Steps)
                 {
-                    Console.WriteLine($"Executing: {step.FromStatus} → {step.ToStatus} via '{step.TransitionName}'");
+                    _logger?.LogInformation("Executing: {FromStatus} → {ToStatus} via '{TransitionName}'", step.FromStatus, step.ToStatus, step.TransitionName);
                     
                     await _jiraClient.TransitionIssueAsync(issueKey, step.TransitionName);
                     
@@ -155,7 +165,7 @@ namespace JiraTools
                     var currentStatus = await _jiraClient.GetIssueStatusAsync(issueKey);
                     if (currentStatus != step.ToStatus)
                     {
-                        Console.WriteLine($"Warning: Expected status '{step.ToStatus}' but found '{currentStatus}'");
+                        _logger?.LogWarning("Warning: Expected status '{ExpectedStatus}' but found '{ActualStatus}'", step.ToStatus, currentStatus);
                     }
                 }
 
@@ -164,12 +174,12 @@ namespace JiraTools
                 workflowPath.LastUsed = DateTime.UtcNow;
                 SaveCache();
 
-                Console.WriteLine("Workflow execution completed successfully!");
+                _logger?.LogInformation("Workflow execution completed successfully!");
                 return true;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error executing workflow: {ex.Message}");
+                _logger?.LogError(ex, "Error executing workflow: {Message}", ex.Message);
                 return false;
             }
         }
@@ -245,7 +255,7 @@ namespace JiraTools
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error exploring transitions from {currentStatus}: {ex.Message}");
+                _logger?.LogError(ex, "Error exploring transitions from {CurrentStatus}: {Message}", currentStatus, ex.Message);
             }
 
             visited.Remove(currentStatus);
@@ -340,7 +350,7 @@ namespace JiraTools
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Warning: Could not load workflow cache: {ex.Message}");
+                _logger?.LogWarning(ex, "Warning: Could not load workflow cache: {Message}", ex.Message);
                 _cache = new WorkflowCache();
             }
         }
@@ -354,7 +364,7 @@ namespace JiraTools
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Warning: Could not save workflow cache: {ex.Message}");
+                _logger?.LogWarning(ex, "Warning: Could not save workflow cache: {Message}", ex.Message);
             }
         }
 
