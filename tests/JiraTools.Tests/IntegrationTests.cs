@@ -101,7 +101,7 @@ namespace JiraTools.Tests
             _mockJiraClient.Setup(x => x.GetIssueStatusAsync(It.IsAny<string>()))
                           .ReturnsAsync("To Do");
             _mockJiraClient.Setup(x => x.GetAvailableTransitionsAsync(It.IsAny<string>()))
-                          .ReturnsAsync(new Dictionary<string, string> { { "11", "In Progress" } });
+                          .ReturnsAsync(new Dictionary<string, string> { { "In Progress", "11" } });
             _mockJiraClient.Setup(x => x.TransitionIssueAsync(It.IsAny<string>(), It.IsAny<string>()))
                           .Returns(Task.CompletedTask);
 

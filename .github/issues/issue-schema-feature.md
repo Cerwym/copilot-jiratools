@@ -12,16 +12,101 @@ The current implementation relies on parsing markdown tables in `status.md` file
 4. **Poor Tooling Support**: No IDE support for autocompletion or validation
 5. **Difficult to Extend**: Hard to add complex data structures or relationships
 
-### Current Implementation Issues
-- `CommentTaskCommand` parses markdown tables with hardcoded column expectations
-- Table structure is fixed: `| Project | Status | Jira Task | Comments |`
-- No validation of data types or constraints
-- Error handling is limited to "table not found" scenarios
+### Real-World Issues Discovered During Development
+**Recent testing improvements (achieving 100% test pass rate) revealed critical limitations:**
+
+#### CommentTaskCommand Parsing Brittleness
+- **Fixed Table Structure**: The current implementation hardcodes exactly 4 columns: `| Project | Status | Jira Task | Comments |`
+- **Column Order Dependency**: Parser expects columns in exact order, fails if users rearrange
+- **Header Case Sensitivity**: Parser may fail if headers have different capitalization
+- **No Flexible Field Addition**: Cannot add new columns without code changes
+- **Test Isolation Issues**: Markdown parsing created test interference due to file system dependencies
+
+#### Parsing Logic Fragility
+```csharp
+// Current brittle implementation in CommentTaskCommand
+if (line.StartsWith("|") && line.Split('|').Length >= 5)
+{
+    var parts = line.Split('|');
+    var project = parts[1].Trim();
+    var status = parts[2].Trim(); 
+    var jiraTask = parts[3].Trim();
+    var comments = parts[4].Trim();
+    // ... hardcoded parsing logic
+}
+```
+
+**Problems discovered:**
+- No validation that headers match expected format
+- Array index errors if table format changes
+- No graceful degradation for malformed tables
+- Difficult to unit test due to file system dependencies
+- Zero flexibility for different project structures
+
+#### Test Environment Challenges
+- **File System Dependencies**: Tests require creating temporary markdown files
+- **Parsing Inconsistencies**: Different markdown readers might interpret tables differently
+- **State Management**: Shared state between tests caused interference
+- **Limited Mockability**: Hard to mock file-based configuration for isolated testing
 
 ## Proposed Solution
-Implement a schema-based configuration system that supports:
+Implement a schema-based configuration system that addresses the discovered limitations:
 
-### 1. Configuration File Format Options
+### How Schema Approach Solves Current Problems
+
+#### 1. **Eliminates Parsing Brittleness**
+Instead of fragile string parsing:
+```csharp
+// Current fragile approach
+var parts = line.Split('|');
+var project = parts[1].Trim(); // Breaks if column order changes
+
+// Schema-based approach
+var config = await configLoader.LoadAsync<ProjectConfig>("config.json");
+foreach (var project in config.Projects)
+{
+    var jiraTask = project.JiraTaskId; // Type-safe, always available
+    var status = project.Status; // Validated enum values
+}
+```
+
+#### 2. **Provides Flexible Structure**
+```json
+// Users can add custom fields without code changes
+{
+  "projects": [
+    {
+      "id": "frontend-redesign",
+      "name": "Frontend Redesign",
+      "jiraTaskId": "FRONT-123", 
+      "status": "in-progress",
+      "priority": "high",
+      "assignee": "john.doe",
+      "customFields": {
+        "workClassification": "Development",
+        "estimatedHours": 40,
+        "tags": ["ui", "responsive", "accessibility"]
+      }
+    }
+  ]
+}
+```
+
+#### 3. **Enables Comprehensive Testing**
+```csharp
+// Easy to mock and test
+var mockConfig = new ProjectConfig
+{
+    Projects = new[]
+    {
+        new Project { Id = "test", JiraTaskId = "TEST-123", Status = ProjectStatus.InProgress }
+    }
+};
+var command = new CommentTaskCommand(mockJiraClient, mockConfig, logger);
+// No file system dependencies, perfect isolation
+```
+
+### Configuration File Format Options
 **Option A: JSON Schema + JSON Files**
 ```json
 {
@@ -137,17 +222,28 @@ Define schemas for validation and tooling support:
 
 ### 3. Implementation Plan
 
-#### Phase 1: Core Infrastructure
-- [ ] Create schema definition files
-- [ ] Implement configuration file parser (JSON/YAML/TOML)
-- [ ] Add schema validation
-- [ ] Create configuration model classes
+#### Phase 1: Core Infrastructure (Addresses Testing Issues)
+- [ ] Create schema definition files with comprehensive validation rules
+- [ ] Implement configuration file parser (JSON/YAML/TOML) with proper error handling
+- [ ] Add schema validation with detailed error messages
+- [ ] Create configuration model classes with strong typing
+- [ ] **Implement dependency injection for configuration** (enables better testing)
+- [ ] **Add configuration abstractions** (eliminates file system dependencies in tests)
 
-#### Phase 2: Command Refactoring
-- [ ] Refactor `CommentTaskCommand` to use schema-based config
-- [ ] Update project selection logic
-- [ ] Implement backwards compatibility with markdown tables
+#### Phase 2: Command Refactoring (Fixes Parsing Brittleness)
+- [ ] **Refactor `CommentTaskCommand` to eliminate hardcoded table parsing**
+- [ ] **Replace string splitting with type-safe configuration access**
+- [ ] Update project selection logic with schema-validated data
+- [ ] Implement backwards compatibility with markdown tables (transition period)
 - [ ] Add migration utilities for existing markdown files
+- [ ] **Create comprehensive unit tests with mocked configuration**
+
+#### Phase 3: Enhanced Validation & Flexibility
+- [ ] Add support for custom fields through schema extensions
+- [ ] Implement project templates with validation
+- [ ] Add configuration validation commands (`jiratools validate-config`)
+- [ ] Support for multiple configuration files/workspaces
+- [ ] **Add real-time configuration validation during editing**
 
 #### Phase 3: Extended Features
 - [ ] Add support for custom fields through schema extensions
@@ -163,22 +259,31 @@ Define schemas for validation and tooling support:
 
 ## Benefits
 
-### 1. Extensibility
+### 1. **Eliminates Testing Challenges** ⭐ *Critical for 100% Test Coverage*
+- **Perfect Test Isolation**: No file system dependencies in unit tests
+- **Easy Mocking**: Configuration can be injected and mocked cleanly
+- **Parallel Test Execution**: No shared state between tests
+- **Comprehensive Coverage**: All edge cases can be tested with synthetic data
+- **Faster Test Execution**: No I/O operations in unit tests
+
+### 2. Extensibility
 - Easy to add new fields or data types via schema updates
 - Support for complex nested data structures
 - Plugin/extension system for custom fields
 
-### 2. Validation & Reliability
+### 3. Validation & Reliability
 - Schema validation ensures data integrity
 - IDE support for autocompletion and error detection
 - Clear error messages for invalid configurations
+- **Compile-time safety** with strongly-typed configuration models
 
-### 3. Developer Experience
+### 4. Developer Experience
 - Better tooling support (IntelliSense, validation)
 - Self-documenting through schema definitions
 - Version control friendly (structured text files)
+- **No more parsing debugging** - eliminate string manipulation errors
 
-### 4. Future-Proofing
+### 5. Future-Proofing
 - Easier to add integrations with other tools
 - Support for multiple project management methodologies
 - API-friendly structure for potential web interfaces

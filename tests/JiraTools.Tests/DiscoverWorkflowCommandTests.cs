@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xunit;
 using Moq;
@@ -36,6 +37,14 @@ namespace JiraTools.Tests
                           .ReturnsAsync("Task");
             _mockJiraClient.Setup(x => x.GetAvailableTransitionsAsync(It.IsAny<string>()))
                           .ReturnsAsync(new Dictionary<string, string> { { "In Progress", "11" }, { "Done", "31" } });
+            _mockJiraClient.Setup(x => x.GetDetailedTransitionsAsync(It.IsAny<string>()))
+                          .ReturnsAsync(new Dictionary<string, TransitionDetails> 
+                          { 
+                              { "In Progress", new TransitionDetails { Id = "11", Name = "In Progress", ToStatusName = "In Progress" } },
+                              { "Done", new TransitionDetails { Id = "31", Name = "Done", ToStatusName = "Done" } }
+                          });
+            _mockJiraClient.Setup(x => x.TransitionIssueAsync(It.IsAny<string>(), It.IsAny<string>()))
+                          .Returns(Task.CompletedTask);
             
             var command = new DiscoverWorkflowCommand(_mockJiraClient.Object, _options, _mockLogger.Object);
 
@@ -63,8 +72,24 @@ namespace JiraTools.Tests
         [Fact]
         public async Task ExecuteAsync_WithDefaultTarget_ShouldUseDoneAsDefault()
         {
-            // Arrange
+            // Arrange - Add all necessary mocks for WorkflowDiscovery
             _options.TransitionName = null;
+            
+            _mockJiraClient.Setup(x => x.GetIssueStatusAsync(It.IsAny<string>()))
+                          .ReturnsAsync("To Do");
+            _mockJiraClient.Setup(x => x.GetIssueTypeAsync(It.IsAny<string>()))
+                          .ReturnsAsync("Task");
+            _mockJiraClient.Setup(x => x.GetAvailableTransitionsAsync(It.IsAny<string>()))
+                          .ReturnsAsync(new Dictionary<string, string> { { "In Progress", "11" }, { "Done", "31" } });
+            _mockJiraClient.Setup(x => x.GetDetailedTransitionsAsync(It.IsAny<string>()))
+                          .ReturnsAsync(new Dictionary<string, TransitionDetails> 
+                          { 
+                              { "In Progress", new TransitionDetails { Id = "11", Name = "In Progress", ToStatusName = "In Progress" } },
+                              { "Done", new TransitionDetails { Id = "31", Name = "Done", ToStatusName = "Done" } }
+                          });
+            _mockJiraClient.Setup(x => x.TransitionIssueAsync(It.IsAny<string>(), It.IsAny<string>()))
+                          .Returns(Task.CompletedTask);
+            
             var command = new DiscoverWorkflowCommand(_mockJiraClient.Object, _options, _mockLogger.Object);
 
             // Act

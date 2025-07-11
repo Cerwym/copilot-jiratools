@@ -131,9 +131,13 @@ namespace JiraTools.Commands
                     }
                 }
 
-                // Check if the transition name is valid
-                if (transitions.TryGetValue(transitionName, out var transitionId))
+                // Check if the transition name is valid (case-insensitive)
+                var matchingTransition = transitions.FirstOrDefault(t => 
+                    string.Equals(t.Key, transitionName, StringComparison.OrdinalIgnoreCase));
+                
+                if (!string.IsNullOrEmpty(matchingTransition.Key))
                 {
+                    var transitionId = matchingTransition.Value;
                     // Ask for confirmation before executing the transition
                     bool proceedWithTransition = true;
 

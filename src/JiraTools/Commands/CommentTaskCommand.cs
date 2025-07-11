@@ -100,7 +100,14 @@ namespace JiraTools.Commands
                 if (projectColIndex == -1 || commentsColIndex == -1)
                 {
                     _logger?.LogError("Error: Could not find the Project or Comments column in the table.");
+                    _logger?.LogDebug("Project column index: {ProjectColIndex}, Comments column index: {CommentsColIndex}", projectColIndex, commentsColIndex);
                     return false;
+                }
+
+                // Jira Task column is optional
+                if (jiraTaskColIndex == -1)
+                {
+                    _logger?.LogWarning("Jira Task column not found, will use 'N/A' for task references");
                 }
 
                 // Parse projects from the table
@@ -175,12 +182,16 @@ namespace JiraTools.Commands
                     string jiraTask = jiraTaskColIndex != -1 && cells.Length > jiraTaskColIndex ?
                         cells[jiraTaskColIndex].Trim() : "N/A";
 
-                    projects.Add(new ProjectData
+                    // Only add non-empty project names
+                    if (!string.IsNullOrWhiteSpace(project))
                     {
-                        Name = project,
-                        JiraTask = jiraTask,
-                        LineIndex = i
-                    });
+                        projects.Add(new ProjectData
+                        {
+                            Name = project,
+                            JiraTask = jiraTask,
+                            LineIndex = i
+                        });
+                    }
                 }
             }
 

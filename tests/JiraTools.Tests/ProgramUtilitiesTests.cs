@@ -128,10 +128,26 @@ namespace JiraTools.Tests
         }
 
         [Fact]
-        public void PromptForCredentials_ShouldNotThrow()
+        public void PromptForCredentials_ShouldThrowInNonInteractiveMode()
         {
             // Arrange
-            var options = new CommandLineOptions();
+            var options = new CommandLineOptions { NonInteractive = true };
+
+            // Act & Assert
+            var exception = Record.Exception(() => ProgramUtilities.PromptForCredentials(options));
+            Assert.NotNull(exception);
+            Assert.IsType<InvalidOperationException>(exception);
+        }
+
+        [Fact]
+        public void PromptForCredentials_WithCredentials_ShouldNotThrow()
+        {
+            // Arrange
+            var options = new CommandLineOptions 
+            { 
+                Username = "test@example.com",
+                ApiToken = "test-token"
+            };
 
             // Act & Assert
             var exception = Record.Exception(() => ProgramUtilities.PromptForCredentials(options));

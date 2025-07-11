@@ -28,11 +28,11 @@ namespace JiraTools
                 ? "jira-workflows.json" 
                 : $"jira-workflows-{projectKey.ToLower()}.json";
             
-            _workflowCachePath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".jiratools",
-                cacheFileName
-            );
+            // Allow override of cache directory for testing
+            var cacheDirectory = Environment.GetEnvironmentVariable("JIRATOOLS_CACHE_DIR") 
+                ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".jiratools");
+            
+            _workflowCachePath = Path.Combine(cacheDirectory, cacheFileName);
 
             LoadCache();
         }
@@ -42,6 +42,9 @@ namespace JiraTools
         /// </summary>
         public async Task<WorkflowPath> DiscoverWorkflowAsync(string sampleIssueKey, string targetStatus = "Done")
         {
+            if (string.IsNullOrEmpty(sampleIssueKey))
+                throw new ArgumentException("Issue key cannot be null or empty", nameof(sampleIssueKey));
+
             try
             {
                 var currentStatus = await _jiraClient.GetIssueStatusAsync(sampleIssueKey);
@@ -123,6 +126,9 @@ namespace JiraTools
         /// </summary>
         public async Task<bool> ExecuteWorkflowAsync(string issueKey, WorkflowPath workflowPath, bool interactive = true)
         {
+            if (string.IsNullOrEmpty(issueKey))
+                throw new ArgumentException("Issue key cannot be null or empty", nameof(issueKey));
+                
             if (workflowPath == null)
                 throw new ArgumentNullException(nameof(workflowPath));
             

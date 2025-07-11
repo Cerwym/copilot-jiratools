@@ -21,18 +21,19 @@ namespace JiraTools.Tests
             _options = new CommandLineOptions
             {
                 IssueKey = "TEST-123",
-                TransitionName = "Done"
+                TransitionName = "Done",
+                NonInteractive = true
             };
         }
 
         [Fact]
         public async Task ExecuteAsync_WithValidParameters_ShouldSucceed()
         {
-            // Arrange
+            // Arrange - Dictionary mapping transition names to IDs (as per interface)
             var transitions = new Dictionary<string, string>
             {
-                { "11", "Done" },
-                { "21", "In Progress" }
+                { "Done", "11" },
+                { "In Progress", "21" }
             };
 
             _mockJiraClient.Setup(x => x.GetIssueStatusAsync(It.IsAny<string>()))
@@ -71,11 +72,11 @@ namespace JiraTools.Tests
         [Fact]
         public async Task ExecuteAsync_WithListOnlyOption_ShouldListTransitionsOnly()
         {
-            // Arrange
+            // Arrange - Dictionary mapping transition names to IDs (as per interface)
             var transitions = new Dictionary<string, string>
             {
-                { "11", "Done" },
-                { "21", "In Progress" }
+                { "Done", "11" },
+                { "In Progress", "21" }
             };
 
             _mockJiraClient.Setup(x => x.GetIssueStatusAsync(It.IsAny<string>()))
@@ -98,11 +99,11 @@ namespace JiraTools.Tests
         [Fact]
         public async Task ExecuteAsync_WithInvalidTransition_ShouldFail()
         {
-            // Arrange
+            // Arrange - Dictionary mapping transition names to IDs (as per interface)
             var transitions = new Dictionary<string, string>
             {
-                { "11", "In Progress" },
-                { "21", "Ready for Review" }
+                { "In Progress", "11" },
+                { "Ready for Review", "21" }
             };
 
             _mockJiraClient.Setup(x => x.GetIssueStatusAsync(It.IsAny<string>()))
@@ -158,11 +159,11 @@ namespace JiraTools.Tests
         [Fact]
         public async Task ExecuteAsync_WithCaseInsensitiveTransition_ShouldSucceed()
         {
-            // Arrange
+            // Arrange - Dictionary mapping transition names to IDs (as per interface)
             var transitions = new Dictionary<string, string>
             {
-                { "11", "Done" },
-                { "21", "In Progress" }
+                { "Done", "11" },
+                { "In Progress", "21" }
             };
 
             _mockJiraClient.Setup(x => x.GetIssueStatusAsync(It.IsAny<string>()))

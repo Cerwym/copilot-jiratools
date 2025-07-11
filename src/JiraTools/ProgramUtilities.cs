@@ -307,6 +307,11 @@ namespace JiraTools
         {
             if (string.IsNullOrEmpty(options.Username) || string.IsNullOrEmpty(options.ApiToken))
             {
+                if (options.NonInteractive)
+                {
+                    throw new InvalidOperationException("Credentials are required but not provided in non-interactive mode.");
+                }
+
                 Console.WriteLine("Jira API credentials are required.");
 
                 if (string.IsNullOrEmpty(options.Username))

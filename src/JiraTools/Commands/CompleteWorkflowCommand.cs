@@ -49,6 +49,15 @@ namespace JiraTools.Commands
                 }
 
                 _logger?.LogInformation("Finding workflow path to '{TargetStatus}'...", targetStatus);
+                
+                // Check if already at target status
+                var currentStatus = await _jiraClient.GetIssueStatusAsync(_options.IssueKey);
+                if (currentStatus == targetStatus)
+                {
+                    _logger?.LogInformation("Issue {IssueKey} is already at status '{TargetStatus}'.", _options.IssueKey, targetStatus);
+                    return true;
+                }
+                
                 var workflowPath = await discovery.GetWorkflowPathAsync(_options.IssueKey, targetStatus);
 
                 if (workflowPath != null && workflowPath.Steps.Any())
