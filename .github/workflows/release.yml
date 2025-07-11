@@ -2,6 +2,7 @@ name: Release
 
 on:
   push:
+    branches: [ main ]
     tags:
       - 'v*'
   workflow_dispatch:
@@ -15,8 +16,130 @@ env:
   DOTNET_VERSION: '8.0.x'
 
 jobs:
+  # First, run tests to ensure quality
+  test:
+    runs-on: ubuntu-latest
+    name: Run Tests
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build
+      run: dotnet build --no-restore --configuration Release
+      
+    - name: Test
+      run: dotnet test --no-build --configuration Release --verbosity normal
+
+  # Calculate version based on commits or use provided version
+  version:
+    runs-on: ubuntu-latest
+    needs: test
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      should_release: ${{ steps.version.outputs.SHOULD_RELEASE }}
+      tag_exists: ${{ steps.version.outputs.TAG_EXISTS }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Determine version and release necessity
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          # Manual trigger with specific version
+          VERSION="${{ github.event.inputs.version }}"
+          SHOULD_RELEASE="true"
+          echo "Manual release triggered for version: $VERSION"
+        elif [ "${{ github.event_name }}" = "push" ] && [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          # Tag push
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          SHOULD_RELEASE="true"
+          echo "Tag-based release for version: $VERSION"
+        elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          # Push to main - calculate automatic version
+          echo "Push to main detected, calculating automatic version..."
+          
+          # Get the latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+          
+          # Extract version number (remove 'v' prefix)
+          LATEST_VERSION=${LATEST_TAG#v}
+          echo "Latest version: $LATEST_VERSION"
+          
+          # Split version into parts
+          IFS='.' read -ra VERSION_PARTS <<< "$LATEST_VERSION"
+          MAJOR=${VERSION_PARTS[0]:-0}
+          MINOR=${VERSION_PARTS[1]:-0}
+          PATCH=${VERSION_PARTS[2]:-0}
+          
+          # Get commits since last tag
+          COMMITS_SINCE_TAG=$(git rev-list ${LATEST_TAG}..HEAD --count 2>/dev/null || git rev-list HEAD --count)
+          echo "Commits since last tag: $COMMITS_SINCE_TAG"
+          
+          # If no new commits, skip release
+          if [ "$COMMITS_SINCE_TAG" -eq 0 ]; then
+            echo "No new commits since last release, skipping..."
+            SHOULD_RELEASE="false"
+            VERSION="$LATEST_VERSION"
+          else
+            # Analyze commit messages for version bump type
+            COMMIT_MESSAGES=$(git log ${LATEST_TAG}..HEAD --pretty=format:"%s" 2>/dev/null || git log --pretty=format:"%s")
+            echo "Analyzing commit messages for version bump..."
+            
+            # Determine version bump
+            if echo "$COMMIT_MESSAGES" | grep -qi "BREAKING CHANGE\|major:"; then
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              BUMP_TYPE="major"
+            elif echo "$COMMIT_MESSAGES" | grep -qi "feat:\|feature:\|minor:"; then
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              BUMP_TYPE="minor"
+            else
+              PATCH=$((PATCH + 1))
+              BUMP_TYPE="patch"
+            fi
+            
+            VERSION="$MAJOR.$MINOR.$PATCH"
+            SHOULD_RELEASE="true"
+            echo "New version: v$VERSION (${BUMP_TYPE} bump)"
+          fi
+        else
+          echo "Unknown trigger, skipping release"
+          SHOULD_RELEASE="false"
+          VERSION="0.0.0"
+        fi
+        
+        # Check if tag already exists
+        if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+          echo "Tag v$VERSION already exists, skipping release"
+          TAG_EXISTS="true"
+          SHOULD_RELEASE="false"
+        else
+          TAG_EXISTS="false"
+        fi
+        
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "SHOULD_RELEASE=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
+        echo "TAG_EXISTS=$TAG_EXISTS" >> $GITHUB_OUTPUT
+        echo "Final decision: VERSION=$VERSION, SHOULD_RELEASE=$SHOULD_RELEASE, TAG_EXISTS=$TAG_EXISTS"
+
   build-and-release:
     runs-on: ubuntu-latest
+    needs: [test, version]
+    if: needs.version.outputs.should_release == 'true' && needs.version.outputs.tag_exists == 'false'
     permissions:
       contents: write
       packages: write
@@ -30,20 +153,43 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: Determine version
-      id: version
+    - name: Use calculated version
       run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          VERSION="${{ github.event.inputs.version }}"
-        else
-          VERSION="${GITHUB_REF#refs/tags/v}"
-        fi
-        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-        echo "Building version: $VERSION"
+        echo "Using version: ${{ needs.version.outputs.version }}"
 
     - name: Update project version
       run: |
-        sed -i "s/<Version>.*<\/Version>/<Version>${{ steps.version.outputs.VERSION }}<\/Version>/" JiraTools.csproj
+        # Update the main project file
+        if [ -f "src/JiraTools/JiraTools.csproj" ]; then
+          PROJECT_FILE="src/JiraTools/JiraTools.csproj"
+        elif [ -f "JiraTools.csproj" ]; then
+          PROJECT_FILE="JiraTools.csproj"
+        else
+          echo "Could not find project file"
+          exit 1
+        fi
+        
+        VERSION="${{ needs.version.outputs.version }}"
+        echo "Updating $PROJECT_FILE with version $VERSION"
+        
+        # Update or add version elements
+        sed -i "s/<Version>.*<\/Version>/<Version>$VERSION<\/Version>/" "$PROJECT_FILE"
+        sed -i "s/<AssemblyVersion>.*<\/AssemblyVersion>/<AssemblyVersion>$VERSION<\/AssemblyVersion>/" "$PROJECT_FILE"
+        sed -i "s/<FileVersion>.*<\/FileVersion>/<FileVersion>$VERSION<\/FileVersion>/" "$PROJECT_FILE"
+        
+        # If version elements don't exist, add them
+        if ! grep -q "<Version>" "$PROJECT_FILE"; then
+          sed -i '/<PropertyGroup>/a \ \ <Version>'$VERSION'</Version>' "$PROJECT_FILE"
+        fi
+        if ! grep -q "<AssemblyVersion>" "$PROJECT_FILE"; then
+          sed -i '/<PropertyGroup>/a \ \ <AssemblyVersion>'$VERSION'</AssemblyVersion>' "$PROJECT_FILE"
+        fi
+        if ! grep -q "<FileVersion>" "$PROJECT_FILE"; then
+          sed -i '/<PropertyGroup>/a \ \ <FileVersion>'$VERSION'</FileVersion>' "$PROJECT_FILE"
+        fi
+        
+        echo "Project file updated:"
+        cat "$PROJECT_FILE"
 
     - name: Restore dependencies
       run: dotnet restore
@@ -65,18 +211,19 @@ jobs:
     - name: Create archives
       run: |
         cd publish
+        VERSION="${{ needs.version.outputs.version }}"
         
         # Windows
-        zip -r ../jiratools-${{ steps.version.outputs.VERSION }}-win-x64.zip win-x64/
+        zip -r ../jiratools-$VERSION-win-x64.zip win-x64/
         
         # Linux
-        tar -czf ../jiratools-${{ steps.version.outputs.VERSION }}-linux-x64.tar.gz -C linux-x64 .
+        tar -czf ../jiratools-$VERSION-linux-x64.tar.gz -C linux-x64 .
         
         # macOS Intel
-        tar -czf ../jiratools-${{ steps.version.outputs.VERSION }}-osx-x64.tar.gz -C osx-x64 .
+        tar -czf ../jiratools-$VERSION-osx-x64.tar.gz -C osx-x64 .
         
         # macOS Apple Silicon
-        tar -czf ../jiratools-${{ steps.version.outputs.VERSION }}-osx-arm64.tar.gz -C osx-arm64 .
+        tar -czf ../jiratools-$VERSION-osx-arm64.tar.gz -C osx-arm64 .
 
     - name: Create NuGet package
       run: dotnet pack --configuration Release --no-build -o ./packages
@@ -86,42 +233,80 @@ jobs:
         sha256sum *.zip *.tar.gz > checksums.txt
         cat checksums.txt
 
+    - name: Create Git Tag
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git tag -a "v${{ needs.version.outputs.version }}" -m "Release v${{ needs.version.outputs.version }}"
+        git push origin "v${{ needs.version.outputs.version }}"
+
+    - name: Generate Release Notes
+      id: release_notes
+      run: |
+        VERSION="${{ needs.version.outputs.version }}"
+        
+        # Get the previous tag for changelog
+        PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        
+        if [ -n "$PREV_TAG" ]; then
+          CHANGELOG=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          COMPARE_URL="https://github.com/${{ github.repository }}/compare/${PREV_TAG}...v${VERSION}"
+        else
+          CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
+          COMPARE_URL=""
+        fi
+        
+        # Create release body
+        cat > release_body.md << EOF
+        ## JiraTools v${VERSION}
+        
+        ### What's Changed
+        ${CHANGELOG}
+        
+        ### Installation
+        
+        #### Homebrew (macOS/Linux)
+        \`\`\`bash
+        brew install Cerwym/tap/jiratools
+        \`\`\`
+        
+        #### .NET Global Tool
+        \`\`\`bash
+        dotnet tool install -g JiraTools
+        \`\`\`
+        
+        #### Manual Installation
+        Download the appropriate archive for your platform below and extract it to a directory in your PATH.
+        
+        ### Downloads
+        - **Windows (x64)**: jiratools-${VERSION}-win-x64.zip
+        - **Linux (x64)**: jiratools-${VERSION}-linux-x64.tar.gz
+        - **macOS (Intel)**: jiratools-${VERSION}-osx-x64.tar.gz
+        - **macOS (Apple Silicon)**: jiratools-${VERSION}-osx-arm64.tar.gz
+        
+        ### Checksums
+        See checksums.txt for file verification.
+        
+        EOF
+        
+        if [ -n "$COMPARE_URL" ]; then
+          echo "**Full Changelog**: $COMPARE_URL" >> release_body.md
+        fi
+        
+        echo "Release notes generated:"
+        cat release_body.md
+
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: v${{ steps.version.outputs.VERSION }}
-        release_name: JiraTools v${{ steps.version.outputs.VERSION }}
+        tag_name: v${{ needs.version.outputs.version }}
+        release_name: JiraTools v${{ needs.version.outputs.version }}
         draft: false
         prerelease: false
-        body: |
-          ## JiraTools v${{ steps.version.outputs.VERSION }}
-          
-          ### Installation
-          
-          #### Homebrew (macOS/Linux)
-          ```bash
-          brew install peterlockett/tap/jiratools
-          ```
-          
-          #### .NET Global Tool
-          ```bash
-          dotnet tool install -g JiraTools
-          ```
-          
-          #### Manual Installation
-          Download the appropriate archive for your platform below and extract it to a directory in your PATH.
-          
-          ### Downloads
-          - **Windows (x64)**: jiratools-${{ steps.version.outputs.VERSION }}-win-x64.zip
-          - **Linux (x64)**: jiratools-${{ steps.version.outputs.VERSION }}-linux-x64.tar.gz
-          - **macOS (Intel)**: jiratools-${{ steps.version.outputs.VERSION }}-osx-x64.tar.gz
-          - **macOS (Apple Silicon)**: jiratools-${{ steps.version.outputs.VERSION }}-osx-arm64.tar.gz
-          
-          ### Checksums
-          See checksums.txt for file verification.
+        body_path: release_body.md
 
     - name: Upload Windows Release Asset
       uses: actions/upload-release-asset@v1
@@ -129,8 +314,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./jiratools-${{ steps.version.outputs.VERSION }}-win-x64.zip
-        asset_name: jiratools-${{ steps.version.outputs.VERSION }}-win-x64.zip
+        asset_path: ./jiratools-${{ needs.version.outputs.version }}-win-x64.zip
+        asset_name: jiratools-${{ needs.version.outputs.version }}-win-x64.zip
         asset_content_type: application/zip
 
     - name: Upload Linux Release Asset
@@ -139,8 +324,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./jiratools-${{ steps.version.outputs.VERSION }}-linux-x64.tar.gz
-        asset_name: jiratools-${{ steps.version.outputs.VERSION }}-linux-x64.tar.gz
+        asset_path: ./jiratools-${{ needs.version.outputs.version }}-linux-x64.tar.gz
+        asset_name: jiratools-${{ needs.version.outputs.version }}-linux-x64.tar.gz
         asset_content_type: application/gzip
 
     - name: Upload macOS Intel Release Asset
@@ -149,8 +334,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./jiratools-${{ steps.version.outputs.VERSION }}-osx-x64.tar.gz
-        asset_name: jiratools-${{ steps.version.outputs.VERSION }}-osx-x64.tar.gz
+        asset_path: ./jiratools-${{ needs.version.outputs.version }}-osx-x64.tar.gz
+        asset_name: jiratools-${{ needs.version.outputs.version }}-osx-x64.tar.gz
         asset_content_type: application/gzip
 
     - name: Upload macOS Apple Silicon Release Asset
@@ -159,8 +344,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./jiratools-${{ steps.version.outputs.VERSION }}-osx-arm64.tar.gz
-        asset_name: jiratools-${{ steps.version.outputs.VERSION }}-osx-arm64.tar.gz
+        asset_path: ./jiratools-${{ needs.version.outputs.version }}-osx-arm64.tar.gz
+        asset_name: jiratools-${{ needs.version.outputs.version }}-osx-arm64.tar.gz
         asset_content_type: application/gzip
 
     - name: Upload Checksums
