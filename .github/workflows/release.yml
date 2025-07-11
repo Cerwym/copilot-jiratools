@@ -192,21 +192,25 @@ jobs:
         cat "$PROJECT_FILE"
 
     - name: Restore dependencies
-      run: dotnet restore
+      run: |
+        dotnet restore src/JiraTools/JiraTools.csproj
+        dotnet restore tests/JiraTools.Tests/JiraTools.Tests.csproj
 
     - name: Build project
-      run: dotnet build --configuration Release --no-restore
+      run: |
+        dotnet build src/JiraTools/JiraTools.csproj --configuration Release --no-restore
+        dotnet build tests/JiraTools.Tests/JiraTools.Tests.csproj --configuration Release --no-restore
 
     - name: Run tests (if any)
-      run: dotnet test --configuration Release --no-build --verbosity normal || echo "No tests found"
+      run: dotnet test tests/JiraTools.Tests/JiraTools.Tests.csproj --configuration Release --no-build --verbosity normal
 
     - name: Create release builds
       run: |
         # Create self-contained executables for different platforms
-        dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o ./publish/win-x64
-        dotnet publish -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -o ./publish/linux-x64
-        dotnet publish -c Release -r osx-x64 --self-contained -p:PublishSingleFile=true -o ./publish/osx-x64
-        dotnet publish -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true -o ./publish/osx-arm64
+        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o ./publish/win-x64
+        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -o ./publish/linux-x64
+        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r osx-x64 --self-contained -p:PublishSingleFile=true -o ./publish/osx-x64
+        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true -o ./publish/osx-arm64
 
     - name: Create archives
       run: |
