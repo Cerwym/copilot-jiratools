@@ -13,9 +13,9 @@ namespace JiraTools
     class Program
     {
         // Default values - will be overridden by .env file if present
-        private const string DEFAULT_JIRA_URL = "https://n-able.atlassian.net";
-        private const string DEFAULT_PROJECT_KEY = "NCCF"; // N-Central Default
-        private const string PARENT_TASK = "NCCF-741626"; // Parent task for the work
+        private const string DEFAULT_JIRA_URL = "https://your-company.atlassian.net";
+        private const string DEFAULT_PROJECT_KEY = "PROJ"; // Default project key
+        private const string PARENT_TASK = ""; // Parent task for linking (set in .env if needed)
         private const string ENV_FILE_PATH = ".env";
         private const string COPILOT_CONTEXT_FILE_PATH = "copilot-context.md"; // Path within JiraTools directory
 
@@ -85,6 +85,15 @@ namespace JiraTools
                     case "transition":
                         await TransitionTask(jiraClient, options);
                         break;
+                    case "discover-workflow":
+                        await DiscoverWorkflow(jiraClient, options);
+                        break;
+                    case "complete":
+                        await CompleteWorkflow(jiraClient, options);
+                        break;
+                    case "workflow-help":
+                        await ShowWorkflowHelp(jiraClient, options);
+                        break;
                     default:
                         Console.WriteLine("Unknown command. Use --help for usage information.");
                         break;
@@ -124,9 +133,9 @@ namespace JiraTools
                     contextContent.AppendLine("```json");
                     contextContent.AppendLine("[");
                     contextContent.AppendLine("  {");
-                    contextContent.AppendLine("    \"file_path\": \"/Users/peterlockett/Documents/Projects/n-central-win-agent/docs/quartz_migration_status.md\",");
-                    contextContent.AppendLine("    \"project_dir\": \"/Users/peterlockett/Documents/Projects/n-central-win-agent/dev-assist/JiraTools\",");
-                    contextContent.AppendLine("    \"purpose\": \"Quartz migration status tracking\",");
+                    contextContent.AppendLine("    \"file_path\": \"/path/to/your/project/docs/status.md\",");
+                    contextContent.AppendLine("    \"project_dir\": \"/path/to/your/project/jiratools\",");
+                    contextContent.AppendLine("    \"purpose\": \"Project status tracking\",");
                     contextContent.AppendLine("    \"last_updated\": \"" + DateTime.Now.ToString("yyyy-MM-dd") + "\"");
                     contextContent.AppendLine("  }");
                     contextContent.AppendLine("]");
@@ -344,42 +353,51 @@ namespace JiraTools
                     Console.WriteLine($"Created issue: {options.JiraUrl}/browse/{issueKey}");
 
                     // Link to parent task if needed
-                    if (options.LinkToParent && !string.IsNullOrEmpty(PARENT_TASK))
+                    if (options.LinkToParent)
                     {
-                        Console.WriteLine($"Linking to parent task {PARENT_TASK}...");
-                        bool linked = false;
-
-                        try
+                        var parentTask = options.ParentTask ?? PARENT_TASK;
+                        if (!string.IsNullOrEmpty(parentTask))
                         {
-                            // First try to create a "Relates to" link
-                            linked = await jiraClient.CreateIssueLinkAsync(issueKey, PARENT_TASK, "Relates");
+                            Console.WriteLine($"Linking to parent task {parentTask}...");
+                            bool linked = false;
 
-                            if (linked)
+                            try
                             {
-                                Console.WriteLine($"Successfully linked issue to parent {PARENT_TASK}");
-                            }
-                            else
-                            {
-                                // If that fails, try to set as a subtask (which may or may not work depending on issue types)
-                                Console.WriteLine("Failed to create standard link, trying subtask relationship...");
-                                linked = await jiraClient.SetParentTaskAsync(issueKey, PARENT_TASK);
+                                // First try to create a "Relates to" link
+                                linked = await jiraClient.CreateIssueLinkAsync(issueKey, parentTask, "Relates");
 
                                 if (linked)
                                 {
-                                    Console.WriteLine($"Successfully set {issueKey} as subtask of {PARENT_TASK}");
+                                    Console.WriteLine($"Successfully linked issue to parent {parentTask}");
                                 }
                                 else
                                 {
-                                    Console.WriteLine($"Warning: Could not link task to parent {PARENT_TASK}");
+                                    // If that fails, try to set as a subtask (which may or may not work depending on issue types)
+                                    Console.WriteLine("Failed to create standard link, trying subtask relationship...");
+                                    linked = await jiraClient.SetParentTaskAsync(issueKey, parentTask);
+
+                                    if (linked)
+                                    {
+                                        Console.WriteLine($"Successfully set {issueKey} as subtask of {parentTask}");
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine($"Warning: Could not link task to parent {parentTask}");
+                                    }
                                 }
                             }
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Error linking tasks: {ex.Message}");
-                        }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"Error linking tasks: {ex.Message}");
+                            }
 
-                        Console.WriteLine($"Parent URL: {options.JiraUrl}/browse/{PARENT_TASK}");
+                            Console.WriteLine($"Parent URL: {options.JiraUrl}/browse/{parentTask}");
+                        }
+                        else
+                        {
+                            Console.WriteLine("Warning: --parent option specified but no parent task configured.");
+                            Console.WriteLine("Set PARENT_TASK=PROJ-123 in your .env file or use --parent-task option.");
+                        }
                     }
                 }
             }
@@ -707,6 +725,185 @@ namespace JiraTools
             }
         }
 
+        /// <summary>
+        /// Discovers and caches workflow paths for an issue
+        /// </summary>
+        private static async Task DiscoverWorkflow(JiraClient jiraClient, CommandLineOptions options)
+        {
+            if (string.IsNullOrEmpty(options.IssueKey))
+            {
+                Console.Write("Enter issue key to discover workflow from: ");
+                options.IssueKey = Console.ReadLine();
+            }
+
+            if (string.IsNullOrEmpty(options.IssueKey))
+            {
+                Console.WriteLine("Issue key is required for workflow discovery.");
+                return;
+            }
+
+            try
+            {
+                var discovery = new WorkflowDiscovery(jiraClient, options.ProjectKey);
+                
+                // Get target status from user if not provided
+                var targetStatus = options.TransitionName ?? "Done";
+                if (string.IsNullOrEmpty(options.TransitionName))
+                {
+                    Console.Write("Enter target status (default: Done): ");
+                    var input = Console.ReadLine();
+                    if (!string.IsNullOrEmpty(input))
+                    {
+                        targetStatus = input;
+                    }
+                }
+
+                Console.WriteLine($"Discovering workflow path to '{targetStatus}'...");
+                var workflowPath = await discovery.DiscoverWorkflowAsync(options.IssueKey, targetStatus);
+
+                if (workflowPath != null && workflowPath.Steps.Any())
+                {
+                    Console.WriteLine($"\nDiscovered workflow path ({workflowPath.Steps.Count} steps):");
+                    for (int i = 0; i < workflowPath.Steps.Count; i++)
+                    {
+                        var step = workflowPath.Steps[i];
+                        Console.WriteLine($"  {i + 1}. {step.FromStatus} → {step.ToStatus} (via '{step.TransitionName}')");
+                    }
+                    
+                    Console.WriteLine($"\nWorkflow cached for future use. You can now use:");
+                    Console.WriteLine($"  jiratools complete --issue-key {options.IssueKey} --target {targetStatus}");
+                }
+                else
+                {
+                    Console.WriteLine("Could not discover a workflow path to the target status.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error discovering workflow: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Executes a complete workflow to transition an issue to a target status
+        /// </summary>
+        private static async Task CompleteWorkflow(JiraClient jiraClient, CommandLineOptions options)
+        {
+            if (string.IsNullOrEmpty(options.IssueKey))
+            {
+                Console.Write("Enter issue key: ");
+                options.IssueKey = Console.ReadLine();
+            }
+
+            if (string.IsNullOrEmpty(options.IssueKey))
+            {
+                Console.WriteLine("Issue key is required.");
+                return;
+            }
+
+            try
+            {
+                var discovery = new WorkflowDiscovery(jiraClient, options.ProjectKey);
+                
+                // Get target status
+                var targetStatus = options.TransitionName ?? "Done";
+                if (string.IsNullOrEmpty(options.TransitionName) && !options.NonInteractive)
+                {
+                    Console.Write("Enter target status (default: Done): ");
+                    var input = Console.ReadLine();
+                    if (!string.IsNullOrEmpty(input))
+                    {
+                        targetStatus = input;
+                    }
+                }
+
+                Console.WriteLine($"Finding workflow path to '{targetStatus}'...");
+                var workflowPath = await discovery.GetWorkflowPathAsync(options.IssueKey, targetStatus);
+
+                if (workflowPath != null && workflowPath.Steps.Any())
+                {
+                    var success = await discovery.ExecuteWorkflowAsync(options.IssueKey, workflowPath, 
+                        !options.NonInteractive && !options.SkipConfirmation);
+                    
+                    if (success)
+                    {
+                        Console.WriteLine($"Successfully completed workflow to '{targetStatus}'!");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"No workflow path found to '{targetStatus}'. Try discovering the workflow first:");
+                    Console.WriteLine($"  jiratools discover-workflow --issue-key {options.IssueKey} --transition \"{targetStatus}\"");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error completing workflow: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Shows workflow help and suggestions for an issue
+        /// </summary>
+        private static async Task ShowWorkflowHelp(JiraClient jiraClient, CommandLineOptions options)
+        {
+            if (string.IsNullOrEmpty(options.IssueKey))
+            {
+                Console.Write("Enter issue key: ");
+                options.IssueKey = Console.ReadLine();
+            }
+
+            if (string.IsNullOrEmpty(options.IssueKey))
+            {
+                Console.WriteLine("Issue key is required.");
+                return;
+            }
+
+            try
+            {
+                var discovery = new WorkflowDiscovery(jiraClient, options.ProjectKey);
+                
+                // Get current status and issue type
+                var currentStatus = await jiraClient.GetIssueStatusAsync(options.IssueKey);
+                var issueType = await jiraClient.GetIssueTypeAsync(options.IssueKey);
+                
+                Console.WriteLine($"Issue: {options.IssueKey}");
+                Console.WriteLine($"Type: {issueType}");
+                Console.WriteLine($"Current Status: {currentStatus}");
+                Console.WriteLine();
+                
+                // Show available transitions
+                var transitions = await jiraClient.GetAvailableTransitionsAsync(options.IssueKey);
+                Console.WriteLine("Available next transitions:");
+                foreach (var transition in transitions)
+                {
+                    Console.WriteLine($"  • {transition.Key}");
+                }
+                Console.WriteLine();
+                
+                // Show cached workflow suggestions
+                var suggestions = discovery.GetCommonWorkflowSuggestions(issueType, currentStatus);
+                if (suggestions.Any())
+                {
+                    Console.WriteLine("Common completion workflows:");
+                    foreach (var suggestion in suggestions)
+                    {
+                        Console.WriteLine($"  • {suggestion}");
+                    }
+                    Console.WriteLine();
+                }
+                
+                Console.WriteLine("Commands you can use:");
+                Console.WriteLine($"  jiratools transition --issue-key {options.IssueKey} --transition \"<transition-name>\"");
+                Console.WriteLine($"  jiratools complete --issue-key {options.IssueKey} --transition \"<target-status>\"");
+                Console.WriteLine($"  jiratools discover-workflow --issue-key {options.IssueKey} --transition \"<target-status>\"");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error getting workflow help: {ex.Message}");
+            }
+        }
+
         // Helper functions
 
         private static Dictionary<string, string> LoadTaskMapping(string filePath)
@@ -805,6 +1002,13 @@ namespace JiraTools
                 return options;
             }
 
+            // Check if the first argument is a help flag
+            if (args[0].ToLower() == "--help" || args[0].ToLower() == "-h")
+            {
+                options.ShowHelp = true;
+                return options;
+            }
+
             options.Command = args[0].ToLower();
 
             for (int i = 1; i < args.Length; i++)
@@ -852,10 +1056,18 @@ namespace JiraTools
                         break;
                     case "--transition":
                     case "--status":
+                    case "--target":
                         if (i + 1 < args.Length) options.TransitionName = args[++i];
                         break;
                     case "--parent":
                         options.LinkToParent = true;
+                        break;
+                    case "--parent-task":
+                        if (i + 1 < args.Length) 
+                        {
+                            options.ParentTask = args[++i];
+                            options.LinkToParent = true;
+                        }
                         break;
                     case "--list-only":
                     case "--list":
@@ -888,10 +1100,21 @@ namespace JiraTools
             Console.WriteLine("  update-task           Update an existing Jira task");
             Console.WriteLine("  add-comment           Add a comment to a Jira task");
             Console.WriteLine("  transition            Transition a Jira task to a new status");
+            Console.WriteLine("  discover-workflow     Discover and cache workflow paths for an issue");
+            Console.WriteLine("  complete              Auto-complete workflow to target status (default: Done)");
+            Console.WriteLine("  workflow-help         Show workflow information and suggestions");
+            Console.WriteLine();
+            Console.WriteLine("Workflow Commands (NEW):");
+            Console.WriteLine("  discover-workflow --issue-key PROJ-123 --transition \"Done\"");
+            Console.WriteLine("    Learns the workflow path from current status to target status");
+            Console.WriteLine("  complete --issue-key PROJ-123 --transition \"Done\"");
+            Console.WriteLine("    Automatically executes all steps to reach target status");
+            Console.WriteLine("  workflow-help --issue-key PROJ-123");
+            Console.WriteLine("    Shows current status, available transitions, and cached workflows");
             Console.WriteLine();
             Console.WriteLine("Options:");
             Console.WriteLine("  --help, -h            Show this help message");
-            Console.WriteLine($"  --url                 Jira URL (default: {DEFAULT_JIRA_URL})");
+            Console.WriteLine("  --url                 Jira URL (default: https://your-company.atlassian.net)");
             Console.WriteLine("  --user, --username    Jira username (email)");
             Console.WriteLine("  --token, --api-token  Jira API token");
             Console.WriteLine($"  --project             Jira project key (default: {DEFAULT_PROJECT_KEY})");
@@ -902,7 +1125,8 @@ namespace JiraTools
             Console.WriteLine("  --comment             Comment text");
             Console.WriteLine("  --components          Comma-separated list of components");
             Console.WriteLine("  --transition, --status Status to transition to");
-            Console.WriteLine("  --parent              Link to parent task NCCF-741626");
+            Console.WriteLine("  --parent              Link to parent task (configure PARENT_TASK in .env)");
+            Console.WriteLine("  --parent-task         Specify parent task to link to (e.g., PROJ-123)");
             Console.WriteLine("  --list-only, --list    For transition: list available transitions without executing");
             Console.WriteLine("  --verbose             Show more detailed output");
             Console.WriteLine();
@@ -987,6 +1211,10 @@ namespace JiraTools
                         break;
                     case "link_to_parent":
                         options.LinkToParent = value.Equals("true", StringComparison.OrdinalIgnoreCase);
+                        break;
+                    case "parent_task":
+                    case "jira_parent_task":
+                        options.ParentTask = value;
                         break;
                 }
             }
@@ -1237,6 +1465,7 @@ namespace JiraTools
         public string WorkClassification { get; set; }
         public bool ShowHelp { get; set; }
         public bool LinkToParent { get; set; }
+        public string ParentTask { get; set; }  // Parent task to link to
         public bool ListOnly { get; set; }  // Added to support listing transitions without executing them
         public bool SkipConfirmation { get; set; } // Added to support skipping confirmation prompts
         public bool NonInteractive { get; set; } // Added to support non-interactive mode

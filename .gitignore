@@ -26,6 +26,9 @@ artifacts/
 .nuget/
 packages/
 
+# Publishing
+publish/
+
 # User-specific files
 *.swp
 *.swo
@@ -41,8 +44,20 @@ ehthumbs.db
 # JetBrains Rider
 .idea/
 
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
 # Logs
 *.log
+
+# Release artifacts
+*.zip
+*.tar.gz
+checksums.txt
 
 # Copilot context (if auto-generated)
 copilot-context.md

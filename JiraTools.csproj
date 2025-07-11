@@ -2,14 +2,36 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>JiraTools</RootNamespace>
-    <AssemblyName>JiraTools</AssemblyName>
+    <AssemblyName>jiratools</AssemblyName>
+    <ToolCommandName>jiratools</ToolCommandName>
+    
+    <!-- Package information -->
+    <PackageId>JiraTools</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Peter Lockett</Authors>
+    <Description>A command-line tool for interacting with Jira from development environments</Description>
+    <PackageTags>jira;cli;tools;dotnet-tool</PackageTags>
+    <RepositoryUrl>https://github.com/peterlockett/copilot-jiratools</RepositoryUrl>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    
+    <!-- Global tool configuration -->
+    <PackAsTool>true</PackAsTool>
+    <IsPackable>true</IsPackable>
+    
+    <!-- Self-contained deployment -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="System.Net.Http" Version="4.3.4" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <None Include="LICENSE" Pack="true" PackagePath="" />
+    <None Include="README.md" Pack="true" PackagePath="" />
   </ItemGroup>
 </Project>

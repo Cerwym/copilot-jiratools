@@ -458,6 +458,69 @@ namespace JiraTools
 
             return result;
         }
+
+        /// <summary>
+        /// Gets the issue type for a specific issue
+        /// </summary>
+        /// <param name="issueKey">Key of the issue (e.g., "NC-1234")</param>
+        /// <returns>Issue type name</returns>
+        public async Task<string> GetIssueTypeAsync(string issueKey)
+        {
+            var url = $"{_baseUrl}/rest/api/2/issue/{issueKey}?fields=issuetype";
+
+            // Send the request
+            var response = await _httpClient.GetAsync(url);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Error getting issue type for Jira issue {issueKey}: {response.StatusCode} - {errorContent}");
+            }
+
+            // Parse the response to get the issue type
+            var responseContent = await response.Content.ReadAsStringAsync();
+            dynamic responseObj = JsonConvert.DeserializeObject(responseContent);
+
+            return responseObj.fields.issuetype.name.ToString();
+        }
+
+        /// <summary>
+        /// Gets detailed information about available transitions including target statuses
+        /// </summary>
+        /// <param name="issueKey">Key of the issue (e.g., "NC-1234")</param>
+        /// <returns>Dictionary mapping transition names to transition details</returns>
+        public async Task<Dictionary<string, TransitionDetails>> GetDetailedTransitionsAsync(string issueKey)
+        {
+            var url = $"{_baseUrl}/rest/api/2/issue/{issueKey}/transitions?expand=transitions.fields";
+
+            // Send the request
+            var response = await _httpClient.GetAsync(url);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                throw new Exception($"Error getting detailed transitions for Jira issue {issueKey}: {response.StatusCode} - {errorContent}");
+            }
+
+            // Parse the response to get the transitions with details
+            var responseContent = await response.Content.ReadAsStringAsync();
+            var responseObj = JsonConvert.DeserializeObject<JiraTransitionsResponse>(responseContent);
+
+            var result = new Dictionary<string, TransitionDetails>();
+            foreach (var transition in responseObj.Transitions)
+            {
+                var details = new TransitionDetails
+                {
+                    Id = transition.Id,
+                    Name = transition.Name,
+                    ToStatusName = transition.To?.Name ?? "Unknown",
+                    ToStatusId = transition.To?.Id ?? "unknown"
+                };
+                result[transition.Name] = details;
+            }
+
+            return result;
+        }
     }
 
     #region Response Classes
@@ -481,6 +544,18 @@ namespace JiraTools
 
         [JsonProperty("name")]
         public string Name { get; set; }
+
+        [JsonProperty("to")]
+        public JiraStatus To { get; set; }
+    }
+
+    internal class JiraStatus
+    {
+        [JsonProperty("id")]
+        public string Id { get; set; }
+
+        [JsonProperty("name")]
+        public string Name { get; set; }
     }
 
     internal class JiraTransitionsResponse
@@ -496,6 +571,14 @@ namespace JiraTools
 
         [JsonProperty("name")]
         public string Name { get; set; }
+    }
+
+    public class TransitionDetails
+    {
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public string ToStatusName { get; set; }
+        public string ToStatusId { get; set; }
     }
 
     #endregion

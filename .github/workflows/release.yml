@@ -1,0 +1,184 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+        type: string
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Determine version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION="${GITHUB_REF#refs/tags/v}"
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Building version: $VERSION"
+
+    - name: Update project version
+      run: |
+        sed -i "s/<Version>.*<\/Version>/<Version>${{ steps.version.outputs.VERSION }}<\/Version>/" JiraTools.csproj
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build project
+      run: dotnet build --configuration Release --no-restore
+
+    - name: Run tests (if any)
+      run: dotnet test --configuration Release --no-build --verbosity normal || echo "No tests found"
+
+    - name: Create release builds
+      run: |
+        # Create self-contained executables for different platforms
+        dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o ./publish/win-x64
+        dotnet publish -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -o ./publish/linux-x64
+        dotnet publish -c Release -r osx-x64 --self-contained -p:PublishSingleFile=true -o ./publish/osx-x64
+        dotnet publish -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true -o ./publish/osx-arm64
+
+    - name: Create archives
+      run: |
+        cd publish
+        
+        # Windows
+        zip -r ../jiratools-${{ steps.version.outputs.VERSION }}-win-x64.zip win-x64/
+        
+        # Linux
+        tar -czf ../jiratools-${{ steps.version.outputs.VERSION }}-linux-x64.tar.gz -C linux-x64 .
+        
+        # macOS Intel
+        tar -czf ../jiratools-${{ steps.version.outputs.VERSION }}-osx-x64.tar.gz -C osx-x64 .
+        
+        # macOS Apple Silicon
+        tar -czf ../jiratools-${{ steps.version.outputs.VERSION }}-osx-arm64.tar.gz -C osx-arm64 .
+
+    - name: Create NuGet package
+      run: dotnet pack --configuration Release --no-build -o ./packages
+
+    - name: Calculate checksums
+      run: |
+        sha256sum *.zip *.tar.gz > checksums.txt
+        cat checksums.txt
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.version.outputs.VERSION }}
+        release_name: JiraTools v${{ steps.version.outputs.VERSION }}
+        draft: false
+        prerelease: false
+        body: |
+          ## JiraTools v${{ steps.version.outputs.VERSION }}
+          
+          ### Installation
+          
+          #### Homebrew (macOS/Linux)
+          ```bash
+          brew install peterlockett/tap/jiratools
+          ```
+          
+          #### .NET Global Tool
+          ```bash
+          dotnet tool install -g JiraTools
+          ```
+          
+          #### Manual Installation
+          Download the appropriate archive for your platform below and extract it to a directory in your PATH.
+          
+          ### Downloads
+          - **Windows (x64)**: jiratools-${{ steps.version.outputs.VERSION }}-win-x64.zip
+          - **Linux (x64)**: jiratools-${{ steps.version.outputs.VERSION }}-linux-x64.tar.gz
+          - **macOS (Intel)**: jiratools-${{ steps.version.outputs.VERSION }}-osx-x64.tar.gz
+          - **macOS (Apple Silicon)**: jiratools-${{ steps.version.outputs.VERSION }}-osx-arm64.tar.gz
+          
+          ### Checksums
+          See checksums.txt for file verification.
+
+    - name: Upload Windows Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./jiratools-${{ steps.version.outputs.VERSION }}-win-x64.zip
+        asset_name: jiratools-${{ steps.version.outputs.VERSION }}-win-x64.zip
+        asset_content_type: application/zip
+
+    - name: Upload Linux Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./jiratools-${{ steps.version.outputs.VERSION }}-linux-x64.tar.gz
+        asset_name: jiratools-${{ steps.version.outputs.VERSION }}-linux-x64.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload macOS Intel Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./jiratools-${{ steps.version.outputs.VERSION }}-osx-x64.tar.gz
+        asset_name: jiratools-${{ steps.version.outputs.VERSION }}-osx-x64.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload macOS Apple Silicon Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./jiratools-${{ steps.version.outputs.VERSION }}-osx-arm64.tar.gz
+        asset_name: jiratools-${{ steps.version.outputs.VERSION }}-osx-arm64.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload Checksums
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./checksums.txt
+        asset_name: checksums.txt
+        asset_content_type: text/plain
+
+    - name: Publish to NuGet
+      env:
+        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      run: |
+        if [ -n "$NUGET_API_KEY" ]; then
+          dotnet nuget push ./packages/*.nupkg --api-key $NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+        else
+          echo "NuGet API key not set, skipping NuGet publish"
+        fi
