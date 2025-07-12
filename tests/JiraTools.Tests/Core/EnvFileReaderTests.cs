@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Xunit;
 using JiraTools;
 
-namespace JiraTools.Tests
+namespace JiraTools.Tests.Core
 {
     public class EnvFileReaderTests
     {

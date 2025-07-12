@@ -3,7 +3,7 @@ using System.IO;
 using Xunit;
 using JiraTools;
 
-namespace JiraTools.Tests
+namespace JiraTools.Tests.Core
 {
     public class ProgramUtilitiesTests : IDisposable
     {

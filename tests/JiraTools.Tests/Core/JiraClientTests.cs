@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 using JiraTools;
 using System.Threading;
 
-namespace JiraTools.Tests
+namespace JiraTools.Tests.Core
 {
     public class JiraClientTests
     {

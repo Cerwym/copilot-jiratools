@@ -3,7 +3,7 @@ using Moq;
 using JiraTools;
 using JiraTools.Commands;
 
-namespace JiraTools.Tests
+namespace JiraTools.Tests.Integration
 {
     public class DependencyInjectionTests
     {

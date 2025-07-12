@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 using JiraTools;
 using JiraTools.Commands;
 
-namespace JiraTools.Tests
+namespace JiraTools.Tests.Commands
 {
     public class AddCommentCommandTests
     {

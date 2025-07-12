@@ -300,3 +300,57 @@ To extend this tool:
 2. Update the command-line parser and help text
 3. Add any specialized client methods to `JiraClient.cs`
 4. Test your changes across platforms
+
+## Configuration System
+
+JiraTools uses a flexible configuration system that supports multiple formats:
+
+### Project Configuration
+
+The tool can load project configurations from:
+1. **JSON files** (recommended) - `.jiratools/config.json`
+2. **Markdown tables** (legacy support) - `docs/status.md`
+3. **In-memory configuration** (for testing and automation)
+
+#### JSON Configuration Example
+```json
+{
+  "projects": [
+    {
+      "id": "frontend-redesign",
+      "name": "Frontend Redesign", 
+      "jiraTaskId": "FRONT-123",
+      "status": "in-progress",
+      "priority": "high",
+      "assignee": "john.doe",
+      "comments": [
+        {
+          "date": "2025-01-15",
+          "text": "Initial setup complete",
+          "author": "john.doe"
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### Configuration Auto-Detection
+The tool automatically searches for configuration files in this order:
+1. `--config` command line parameter
+2. `.jiratools/config.json` in current directory
+3. `.jiratools/config.json` in parent directories (git-style search)
+4. `docs/status.md` (markdown table format)
+
+### For Developers
+
+The configuration system uses a provider pattern for easy testing and extensibility:
+
+```csharp
+// Dependency injection ready
+IProjectConfigurationProvider provider = ProjectConfigurationProviderFactory.CreateProvider();
+var config = await provider.LoadAsync();
+
+// Perfect for testing - no file system dependencies
+var testProvider = new InMemoryProjectConfigurationProvider(mockConfig);
+```

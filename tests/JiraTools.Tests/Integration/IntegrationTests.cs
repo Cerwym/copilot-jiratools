@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 using JiraTools;
 using JiraTools.Commands;
 
-namespace JiraTools.Tests
+namespace JiraTools.Tests.Integration
 {
     public class IntegrationTests : IDisposable
     {

@@ -2,8 +2,9 @@ using System.IO;
 using System.Threading.Tasks;
 using Xunit;
 using JiraTools.Commands;
+using JiraTools.Tests.Utils;
 
-namespace JiraTools.Tests
+namespace JiraTools.Tests.Commands
 {
     public class CommentTaskCommandTests : IDisposable
     {
