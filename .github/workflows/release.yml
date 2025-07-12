@@ -23,18 +23,18 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
+      
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
-
+        
     - name: Restore dependencies
       run: dotnet restore
-
+      
     - name: Build
       run: dotnet build --no-restore --configuration Release
-
+      
     - name: Test
       run: dotnet test --no-build --configuration Release --verbosity normal
 
@@ -51,7 +51,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-
+        
     - name: Determine version and release necessity
       id: version
       run: |
@@ -68,25 +68,25 @@ jobs:
         elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
           # Push to main - calculate automatic version
           echo "Push to main detected, calculating automatic version..."
-
+          
           # Get the latest tag
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           echo "Latest tag: $LATEST_TAG"
-
+          
           # Extract version number (remove 'v' prefix)
           LATEST_VERSION=${LATEST_TAG#v}
           echo "Latest version: $LATEST_VERSION"
-
+          
           # Split version into parts
           IFS='.' read -ra VERSION_PARTS <<< "$LATEST_VERSION"
           MAJOR=${VERSION_PARTS[0]:-0}
           MINOR=${VERSION_PARTS[1]:-0}
           PATCH=${VERSION_PARTS[2]:-0}
-
+          
           # Get commits since last tag
           COMMITS_SINCE_TAG=$(git rev-list ${LATEST_TAG}..HEAD --count 2>/dev/null || git rev-list HEAD --count)
           echo "Commits since last tag: $COMMITS_SINCE_TAG"
-
+          
           # If no new commits, skip release
           if [ "$COMMITS_SINCE_TAG" -eq 0 ]; then
             echo "No new commits since last release, skipping..."
@@ -96,7 +96,7 @@ jobs:
             # Analyze commit messages for version bump type
             COMMIT_MESSAGES=$(git log ${LATEST_TAG}..HEAD --pretty=format:"%s" 2>/dev/null || git log --pretty=format:"%s")
             echo "Analyzing commit messages for version bump..."
-
+            
             # Determine version bump
             if echo "$COMMIT_MESSAGES" | grep -qi "BREAKING CHANGE\|major:"; then
               MAJOR=$((MAJOR + 1))
@@ -111,7 +111,7 @@ jobs:
               PATCH=$((PATCH + 1))
               BUMP_TYPE="patch"
             fi
-
+            
             VERSION="$MAJOR.$MINOR.$PATCH"
             SHOULD_RELEASE="true"
             echo "New version: v$VERSION (${BUMP_TYPE} bump)"
@@ -121,7 +121,7 @@ jobs:
           SHOULD_RELEASE="false"
           VERSION="0.0.0"
         fi
-
+        
         # Check if tag already exists
         if git rev-parse "v$VERSION" >/dev/null 2>&1; then
           echo "Tag v$VERSION already exists, skipping release"
@@ -130,7 +130,7 @@ jobs:
         else
           TAG_EXISTS="false"
         fi
-
+        
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
         echo "SHOULD_RELEASE=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
         echo "TAG_EXISTS=$TAG_EXISTS" >> $GITHUB_OUTPUT
@@ -168,15 +168,15 @@ jobs:
           echo "Could not find project file"
           exit 1
         fi
-
+        
         VERSION="${{ needs.version.outputs.version }}"
         echo "Updating $PROJECT_FILE with version $VERSION"
-
+        
         # Update or add version elements
         sed -i "s/<Version>.*<\/Version>/<Version>$VERSION<\/Version>/" "$PROJECT_FILE"
         sed -i "s/<AssemblyVersion>.*<\/AssemblyVersion>/<AssemblyVersion>$VERSION<\/AssemblyVersion>/" "$PROJECT_FILE"
         sed -i "s/<FileVersion>.*<\/FileVersion>/<FileVersion>$VERSION<\/FileVersion>/" "$PROJECT_FILE"
-
+        
         # If version elements don't exist, add them
         if ! grep -q "<Version>" "$PROJECT_FILE"; then
           sed -i '/<PropertyGroup>/a \ \ <Version>'$VERSION'</Version>' "$PROJECT_FILE"
@@ -187,7 +187,7 @@ jobs:
         if ! grep -q "<FileVersion>" "$PROJECT_FILE"; then
           sed -i '/<PropertyGroup>/a \ \ <FileVersion>'$VERSION'</FileVersion>' "$PROJECT_FILE"
         fi
-
+        
         echo "Project file updated:"
         cat "$PROJECT_FILE"
 
@@ -219,16 +219,16 @@ jobs:
       run: |
         cd publish
         VERSION="${{ needs.version.outputs.version }}"
-
+        
         # Windows
         zip -r ../jiratools-$VERSION-win-x64.zip win-x64/
-
+        
         # Linux
         tar -czf ../jiratools-$VERSION-linux-x64.tar.gz -C linux-x64 .
-
+        
         # macOS Intel
         tar -czf ../jiratools-$VERSION-osx-x64.tar.gz -C osx-x64 .
-
+        
         # macOS Apple Silicon
         tar -czf ../jiratools-$VERSION-osx-arm64.tar.gz -C osx-arm64 .
 
@@ -251,10 +251,10 @@ jobs:
       id: release_notes
       run: |
         VERSION="${{ needs.version.outputs.version }}"
-
+        
         # Get the previous tag for changelog
         PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-
+        
         if [ -n "$PREV_TAG" ]; then
           CHANGELOG=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
           COMPARE_URL="https://github.com/${{ github.repository }}/compare/${PREV_TAG}...v${VERSION}"
@@ -262,44 +262,44 @@ jobs:
           CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
           COMPARE_URL=""
         fi
-
+        
         # Create release body
         cat > release_body.md << EOF
         ## JiraTools v${VERSION}
-
+        
         ### What's Changed
         ${CHANGELOG}
-
+        
         ### Installation
-
+        
         #### Homebrew (macOS/Linux)
         \`\`\`bash
         brew install Cerwym/tap/jiratools
         \`\`\`
-
+        
         #### .NET Global Tool
         \`\`\`bash
         dotnet tool install -g JiraTools
         \`\`\`
-
+        
         #### Manual Installation
         Download the appropriate archive for your platform below and extract it to a directory in your PATH.
-
+        
         ### Downloads
         - **Windows (x64)**: jiratools-${VERSION}-win-x64.zip
         - **Linux (x64)**: jiratools-${VERSION}-linux-x64.tar.gz
         - **macOS (Intel)**: jiratools-${VERSION}-osx-x64.tar.gz
         - **macOS (Apple Silicon)**: jiratools-${VERSION}-osx-arm64.tar.gz
-
+        
         ### Checksums
         See checksums.txt for file verification.
-
+        
         EOF
-
+        
         if [ -n "$COMPARE_URL" ]; then
           echo "**Full Changelog**: $COMPARE_URL" >> release_body.md
         fi
-
+        
         echo "Release notes generated:"
         cat release_body.md
 
