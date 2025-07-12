@@ -207,10 +207,10 @@ jobs:
     - name: Create release builds
       run: |
         # Create self-contained executables for different platforms
-        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o ./publish/win-x64
-        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -o ./publish/linux-x64
-        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r osx-x64 --self-contained -p:PublishSingleFile=true -o ./publish/osx-x64
-        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true -o ./publish/osx-arm64
+        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true --no-restore --no-build -o ./publish/win-x64
+        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true --no-restore --no-build -o ./publish/linux-x64
+        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r osx-x64 --self-contained -p:PublishSingleFile=true --no-restore --no-build -o ./publish/osx-x64
+        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true --no-restore --no-build -o ./publish/osx-arm64
 
     - name: Create archives
       run: |
