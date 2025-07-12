@@ -3,6 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
     <RootNamespace>JiraTools</RootNamespace>
     <AssemblyName>jiratools</AssemblyName>
     <ToolCommandName>jiratools</ToolCommandName>
@@ -20,9 +21,10 @@
     <!-- Global tool configuration -->
     <PackAsTool>true</PackAsTool>
     <IsPackable>true</IsPackable>
-    
-    <!-- Self-contained deployment -->
-    <PublishSingleFile>true</PublishSingleFile>
+  </PropertyGroup>
+
+  <!-- Self-contained deployment settings - only applied during publish -->
+  <PropertyGroup Condition="'$(PublishSingleFile)' != ''">
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
