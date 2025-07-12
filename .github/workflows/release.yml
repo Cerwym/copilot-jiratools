@@ -193,17 +193,12 @@ jobs:
 
     - name: Restore dependencies
       run: |
-        # Restore for all runtime identifiers to ensure project.assets.json is properly generated
         dotnet restore src/JiraTools/JiraTools.csproj
         dotnet restore tests/JiraTools.Tests/JiraTools.Tests.csproj
 
     - name: Build project
       run: |
-        # Build for all runtime identifiers to ensure project.assets.json includes all targets
-        dotnet build src/JiraTools/JiraTools.csproj --configuration Release --no-restore -r win-x64
-        dotnet build src/JiraTools/JiraTools.csproj --configuration Release --no-restore -r linux-x64
-        dotnet build src/JiraTools/JiraTools.csproj --configuration Release --no-restore -r osx-x64
-        dotnet build src/JiraTools/JiraTools.csproj --configuration Release --no-restore -r osx-arm64
+        dotnet build src/JiraTools/JiraTools.csproj --configuration Release --no-restore
         dotnet build tests/JiraTools.Tests/JiraTools.Tests.csproj --configuration Release --no-restore
 
     - name: Run tests (if any)
