@@ -193,14 +193,17 @@ jobs:
 
     - name: Restore dependencies
       run: |
-        # Restore dependencies - the RuntimeIdentifiers in the project file will ensure all targets are included
+        # Restore for all runtime identifiers to ensure project.assets.json is properly generated
         dotnet restore src/JiraTools/JiraTools.csproj
         dotnet restore tests/JiraTools.Tests/JiraTools.Tests.csproj
 
     - name: Build project
       run: |
-        # Build main project and tests (runtime-specific builds will be done during publish)
-        dotnet build src/JiraTools/JiraTools.csproj --configuration Release --no-restore
+        # Build for all runtime identifiers to ensure project.assets.json includes all targets
+        dotnet build src/JiraTools/JiraTools.csproj --configuration Release --no-restore -r win-x64
+        dotnet build src/JiraTools/JiraTools.csproj --configuration Release --no-restore -r linux-x64
+        dotnet build src/JiraTools/JiraTools.csproj --configuration Release --no-restore -r osx-x64
+        dotnet build src/JiraTools/JiraTools.csproj --configuration Release --no-restore -r osx-arm64
         dotnet build tests/JiraTools.Tests/JiraTools.Tests.csproj --configuration Release --no-restore
 
     - name: Run tests (if any)
@@ -209,11 +212,10 @@ jobs:
     - name: Create release builds
       run: |
         # Create self-contained executables for different platforms
-        # Note: Removing --no-build and --no-restore to ensure proper runtime-specific compilation
-        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o ./publish/win-x64
-        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -o ./publish/linux-x64
-        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r osx-x64 --self-contained -p:PublishSingleFile=true -o ./publish/osx-x64
-        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true -o ./publish/osx-arm64
+        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true --no-restore --no-build -o ./publish/win-x64
+        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true --no-restore --no-build -o ./publish/linux-x64
+        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r osx-x64 --self-contained -p:PublishSingleFile=true --no-restore --no-build -o ./publish/osx-x64
+        dotnet publish src/JiraTools/JiraTools.csproj -c Release -r osx-arm64 --self-contained -p:PublishSingleFile=true --no-restore --no-build -o ./publish/osx-arm64
 
     - name: Create archives
       run: |
