@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Moq;
 
-namespace JiraTools.Tests
+namespace JiraTools.Tests.Utils
 {
     /// <summary>
     /// Test bootstrapper to provide isolated test environments and prevent test interference

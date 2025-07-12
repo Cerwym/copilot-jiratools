@@ -1,6 +1,6 @@
 using Xunit;
 
-namespace JiraTools.Tests
+namespace JiraTools.Tests.Utils
 {
     public class SimpleTest
     {

@@ -8,7 +8,7 @@ using Moq;
 using Microsoft.Extensions.Logging;
 using JiraTools;
 
-namespace JiraTools.Tests
+namespace JiraTools.Tests.Core
 {
     public class WorkflowDiscoveryTests : IDisposable
     {
