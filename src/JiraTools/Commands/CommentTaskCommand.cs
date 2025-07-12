@@ -1,18 +1,33 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using JiraTools.Configuration;
 
 namespace JiraTools.Commands
 {
     /// <summary>
-    /// Command to comment on a task referenced in a status document
+    /// Command to comment on a task referenced in a project configuration
     /// </summary>
     public class CommentTaskCommand : BaseCommand
     {
-        public CommentTaskCommand(IJiraClient jiraClient, CommandLineOptions options, ILogger logger = null) 
+        private readonly IProjectConfigurationProvider _configurationProvider;
+
+        public CommentTaskCommand(IJiraClient jiraClient, 
+                                 IProjectConfigurationProvider configurationProvider,
+                                 CommandLineOptions options, 
+                                 ILogger? logger = null) 
             : base(jiraClient, options, logger)
+        {
+            _configurationProvider = configurationProvider ?? throw new ArgumentNullException(nameof(configurationProvider));
+        }
+
+        // Backward compatibility constructor for existing code
+        public CommentTaskCommand(IJiraClient jiraClient, CommandLineOptions options, ILogger? logger = null) 
+            : this(jiraClient, ProjectConfigurationProviderFactory.CreateProvider(options?.StatusDocPath, logger), options ?? throw new ArgumentNullException(nameof(options)), logger)
         {
         }
 
@@ -24,104 +39,39 @@ namespace JiraTools.Commands
         {
             try
             {
-                // Default path to the status document
-                string documentPath = _options.StatusDocPath ?? Path.Combine(
-                    Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName,
-                    "docs",
-                    "status.md");
-
-                if (!File.Exists(documentPath))
+                _logger?.LogInformation("Loading project configuration...");
+                
+                // Load configuration using our new provider system
+                var configuration = await _configurationProvider.LoadAsync(_options.StatusDocPath);
+                
+                if (configuration.Projects.Count == 0)
                 {
-                    _logger?.LogError("Error: Status document not found at {DocumentPath}", documentPath);
-                    if (_options.NonInteractive)
+                    _logger?.LogWarning("No projects found in configuration.");
+                    
+                    // If no projects found, check if configuration exists
+                    if (!await _configurationProvider.ExistsAsync(_options.StatusDocPath))
                     {
-                        _logger?.LogError("Running in non-interactive mode, cannot prompt for status document path.");
+                        _logger?.LogError("Configuration file not found at {ConfigPath}", 
+                            _options.StatusDocPath ?? _configurationProvider.GetDefaultConfigPath());
+                        
+                        if (_options.NonInteractive)
+                        {
+                            _logger?.LogError("Running in non-interactive mode, cannot prompt for configuration path.");
+                            return false;
+                        }
+                        
+                        // Could add interactive config creation here in the future
+                        _logger?.LogError("Please create a configuration file or use markdown table format.");
                         return false;
                     }
-                    documentPath = PromptForInput("Enter the path to the status document");
-                    if (!File.Exists(documentPath))
-                    {
-                        _logger?.LogError("Error: Document not found at {DocumentPath}", documentPath);
-                        return false;
-                    }
-                }
-
-                // Read the status document
-                _logger?.LogInformation("Reading status document from: {DocumentPath}", documentPath);
-                var lines = File.ReadAllLines(documentPath);
-
-                // Find the table header line (contains "| Project | Status |")
-                int tableHeaderIndex = -1;
-                for (int i = 0; i < lines.Length; i++)
-                {
-                    if (lines[i].Contains("| Project | Status |"))
-                    {
-                        tableHeaderIndex = i;
-                        break;
-                    }
-                }
-
-                if (tableHeaderIndex == -1)
-                {
-                    _logger?.LogError("Error: Could not find the status table in the document.");
                     return false;
                 }
 
-                // Check if the table has a Comments column
-                if (!lines[tableHeaderIndex].Contains("Comments"))
-                {
-                    _logger?.LogError("Error: The status table doesn't have a Comments column. Please add one first.");
-                    return false;
-                }
+                _logger?.LogInformation("Found {ProjectCount} projects in configuration", configuration.Projects.Count);
 
-                // Parse table structure to find column indices
-                var headerCells = lines[tableHeaderIndex].Split('|');
-                int projectColIndex = -1;
-                int jiraTaskColIndex = -1;
-                int commentsColIndex = -1;
-
-                for (int i = 0; i < headerCells.Length; i++)
-                {
-                    string cell = headerCells[i].Trim();
-                    if (cell.Equals("Project", StringComparison.OrdinalIgnoreCase))
-                    {
-                        projectColIndex = i;
-                    }
-                    else if (cell.Equals("Jira Task", StringComparison.OrdinalIgnoreCase))
-                    {
-                        jiraTaskColIndex = i;
-                    }
-                    else if (cell.Equals("Comments", StringComparison.OrdinalIgnoreCase))
-                    {
-                        commentsColIndex = i;
-                    }
-                }
-
-                if (projectColIndex == -1 || commentsColIndex == -1)
-                {
-                    _logger?.LogError("Error: Could not find the Project or Comments column in the table.");
-                    _logger?.LogDebug("Project column index: {ProjectColIndex}, Comments column index: {CommentsColIndex}", projectColIndex, commentsColIndex);
-                    return false;
-                }
-
-                // Jira Task column is optional
-                if (jiraTaskColIndex == -1)
-                {
-                    _logger?.LogWarning("Jira Task column not found, will use 'N/A' for task references");
-                }
-
-                // Parse projects from the table
-                var projectData = ParseProjectsFromTable(lines, tableHeaderIndex, projectColIndex, jiraTaskColIndex, commentsColIndex);
-
-                if (projectData.Count == 0)
-                {
-                    _logger?.LogWarning("No projects found in the status table.");
-                    return false;
-                }
-
-                // Select a project
-                int selectedProjectIndex = SelectProject(projectData);
-                if (selectedProjectIndex < 0)
+                // Select a project using our type-safe configuration
+                var selectedProject = SelectProject(configuration.Projects);
+                if (selectedProject == null)
                 {
                     return false;
                 }
@@ -143,8 +93,8 @@ namespace JiraTools.Commands
                     return false;
                 }
 
-                // Update the document and Jira
-                await UpdateDocumentAndJira(documentPath, lines, projectData[selectedProjectIndex]);
+                // Add comment to project and update configuration
+                await UpdateProjectAndConfiguration(selectedProject, configuration);
 
                 return true;
             }
@@ -155,50 +105,7 @@ namespace JiraTools.Commands
             }
         }
 
-        private class ProjectData
-        {
-            public string Name { get; set; }
-            public string JiraTask { get; set; }
-            public int LineIndex { get; set; }
-        }
-
-        private List<ProjectData> ParseProjectsFromTable(string[] lines, int tableHeaderIndex, int projectColIndex, int jiraTaskColIndex, int commentsColIndex)
-        {
-            var projects = new List<ProjectData>();
-
-            // Start from the line after the header and separator
-            for (int i = tableHeaderIndex + 2; i < lines.Length; i++)
-            {
-                string line = lines[i];
-                if (!line.StartsWith("|") || line.Trim() == "")
-                {
-                    break; // End of table
-                }
-
-                var cells = line.Split('|');
-                if (cells.Length > Math.Max(projectColIndex, commentsColIndex))
-                {
-                    string project = cells[projectColIndex].Trim();
-                    string jiraTask = jiraTaskColIndex != -1 && cells.Length > jiraTaskColIndex ?
-                        cells[jiraTaskColIndex].Trim() : "N/A";
-
-                    // Only add non-empty project names
-                    if (!string.IsNullOrWhiteSpace(project))
-                    {
-                        projects.Add(new ProjectData
-                        {
-                            Name = project,
-                            JiraTask = jiraTask,
-                            LineIndex = i
-                        });
-                    }
-                }
-            }
-
-            return projects;
-        }
-
-        private int SelectProject(List<ProjectData> projects)
+        private ProjectInfo? SelectProject(IList<ProjectInfo> projects)
         {
             // List available projects
             _logger?.LogInformation("");
@@ -206,100 +113,78 @@ namespace JiraTools.Commands
             for (int i = 0; i < projects.Count; i++)
             {
                 var project = projects[i];
-                _logger?.LogInformation("{Index}. {ProjectName} (Jira: {JiraTask})", i + 1, project.Name, project.JiraTask);
+                _logger?.LogInformation("{Index}. {ProjectName} (Jira: {JiraTask}) - {Status}", 
+                    i + 1, project.Name, project.JiraTaskId, project.Status);
             }
 
-            int selectedProjectIndex = -1;
+            ProjectInfo? selectedProject = null;
             if (!string.IsNullOrEmpty(_options.ProjectKey))
             {
-                for (int i = 0; i < projects.Count; i++)
-                {
-                    if (projects[i].Name.Equals(_options.ProjectKey, StringComparison.OrdinalIgnoreCase))
-                    {
-                        selectedProjectIndex = i;
-                        break;
-                    }
-                }
+                selectedProject = projects.FirstOrDefault(p => 
+                    p.Name.Equals(_options.ProjectKey, StringComparison.OrdinalIgnoreCase) ||
+                    p.Id.Equals(_options.ProjectKey, StringComparison.OrdinalIgnoreCase));
 
-                if (selectedProjectIndex == -1)
+                if (selectedProject == null)
                 {
-                    _logger?.LogWarning("Project '{ProjectKey}' not found in the status table.", _options.ProjectKey);
+                    _logger?.LogWarning("Project '{ProjectKey}' not found in configuration.", _options.ProjectKey);
                 }
             }
 
-            if (selectedProjectIndex == -1)
+            if (selectedProject == null)
             {
                 if (_options.NonInteractive)
                 {
                     _logger?.LogError("No matching project found and running in non-interactive mode.");
-                    return -1;
+                    return null;
                 }
-                selectedProjectIndex = SelectFromList(projects, "Select project", p => $"{p.Name} (Jira: {p.JiraTask})", _logger);
+                
+                var projectIndex = SelectFromList(projects.ToList(), "Select project", 
+                    p => $"{p.Name} (Jira: {p.JiraTaskId}) - {p.Status}", _logger);
+                
+                if (projectIndex >= 0 && projectIndex < projects.Count)
+                {
+                    selectedProject = projects[projectIndex];
+                }
             }
 
-            return selectedProjectIndex;
+            return selectedProject;
         }
 
-        private async Task UpdateDocumentAndJira(string documentPath, string[] lines, ProjectData selectedProject)
+        private async Task UpdateProjectAndConfiguration(ProjectInfo selectedProject, ProjectConfiguration configuration)
         {
             // Format the comment
             string datePrefix = $"[{DateTime.Now:yyyy-MM-dd}] ";
             string formattedComment = datePrefix + _options.Comment.Replace("\n", " ");
 
-            // Update the document with the comment
-            var rowCells = lines[selectedProject.LineIndex].Split('|');
+            // Add comment to the project
+            selectedProject.AddComment(_options.Comment, Environment.UserName);
+            _logger?.LogInformation("Added comment to project '{ProjectName}': {Comment}", 
+                selectedProject.Name, formattedComment);
 
-            // Find the comments column index (we already validated it exists)
-            var headerCells = lines[Array.FindIndex(lines, line => line.Contains("| Project | Status |"))].Split('|');
-            int commentsColIndex = -1;
-            for (int i = 0; i < headerCells.Length; i++)
+            // Save the updated configuration
+            try
             {
-                if (headerCells[i].Trim().Equals("Comments", StringComparison.OrdinalIgnoreCase))
-                {
-                    commentsColIndex = i;
-                    break;
-                }
+                await _configurationProvider.SaveAsync(configuration, _options.StatusDocPath);
+                _logger?.LogInformation("Updated project configuration with comment for project '{ProjectName}'", selectedProject.Name);
             }
-
-            // Update the comments cell
-            if (rowCells.Length > commentsColIndex)
+            catch (Exception ex)
             {
-                string existingComment = rowCells[commentsColIndex].Trim();
-                rowCells[commentsColIndex] = existingComment.Length > 0 ?
-                    $" {existingComment}; {formattedComment} " :
-                    $" {formattedComment} ";
+                _logger?.LogWarning(ex, "Warning: Failed to save configuration: {Message}", ex.Message);
             }
-            else
-            {
-                // Need to extend the cells array
-                var newCells = new string[commentsColIndex + 2]; // +2 because we need one after for the closing |
-                Array.Copy(rowCells, newCells, rowCells.Length);
-                for (int i = rowCells.Length; i < newCells.Length - 1; i++)
-                {
-                    newCells[i] = " ";
-                }
-                newCells[commentsColIndex] = $" {formattedComment} ";
-                rowCells = newCells;
-            }
-
-            // Reconstruct the line
-            lines[selectedProject.LineIndex] = string.Join("|", rowCells);
-
-            // Write the updated document
-            File.WriteAllLines(documentPath, lines);
-            _logger?.LogInformation("Updated status document with comment for project '{ProjectName}'", selectedProject.Name);
 
             // If there's an associated Jira task, also add the comment there
-            if (selectedProject.JiraTask != "N/A" && !string.IsNullOrEmpty(selectedProject.JiraTask) && 
-                selectedProject.JiraTask.Contains("-"))
+            if (!string.IsNullOrEmpty(selectedProject.JiraTaskId) && 
+                selectedProject.JiraTaskId != "N/A" && 
+                selectedProject.JiraTaskId.Contains("-"))
             {
-                _logger?.LogInformation("Adding comment to Jira task {JiraTask}...", selectedProject.JiraTask);
+                _logger?.LogInformation("Adding comment to Jira task {JiraTask}...", selectedProject.JiraTaskId);
                 try
                 {
-                    // Add a reference to the document in the Jira comment
-                    string jiraComment = $"{_options.Comment}\n\n_This comment was added via JiraTools from the status document._";
-                    await _jiraClient.AddCommentAsync(selectedProject.JiraTask, jiraComment);
-                    _logger?.LogInformation("Comment added to Jira task: {JiraUrl}/browse/{JiraTask}", _options.JiraUrl, selectedProject.JiraTask);
+                    // Add a reference to the configuration in the Jira comment
+                    string jiraComment = $"{_options.Comment}\n\n_This comment was added via JiraTools from the project configuration._";
+                    await _jiraClient.AddCommentAsync(selectedProject.JiraTaskId, jiraComment);
+                    _logger?.LogInformation("Comment added to Jira task: {JiraUrl}/browse/{JiraTask}", 
+                        _options.JiraUrl, selectedProject.JiraTaskId);
                 }
                 catch (Exception ex)
                 {
@@ -307,6 +192,8 @@ namespace JiraTools.Commands
                 }
             }
         }
+
+        // ...existing code...
 
         public override bool ValidateParameters()
         {
