@@ -13,7 +13,7 @@ on:
         type: string
 
 env:
-  DOTNET_VERSION: '8.0.x'
+  DOTNET_VERSION: '9.0.x'
 
 jobs:
   # First, run tests to ensure quality
@@ -28,6 +28,16 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
+        dotnet-quality: 'ga'
+
+    - name: Verify .NET installation
+      run: |
+        dotnet --version
+        dotnet --list-sdks
+        echo "DOTNET_ROOT: $DOTNET_ROOT"
+        
+    - name: Clear NuGet cache
+      run: dotnet nuget locals all --clear
 
     - name: Restore dependencies
       run: dotnet restore
@@ -152,6 +162,16 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
+        dotnet-quality: 'ga'
+
+    - name: Verify .NET installation
+      run: |
+        dotnet --version
+        dotnet --list-sdks
+        echo "DOTNET_ROOT: $DOTNET_ROOT"
+        
+    - name: Clear NuGet cache
+      run: dotnet nuget locals all --clear
 
     - name: Use calculated version
       run: |
