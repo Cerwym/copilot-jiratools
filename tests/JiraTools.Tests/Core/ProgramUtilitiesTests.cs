@@ -61,15 +61,33 @@ namespace JiraTools.Tests.Core
             // Ensure file doesn't exist
             Assert.False(File.Exists(expectedFilePath));
 
-            // Act
-            ProgramUtilities.InitializeCopilotContextFile();
+            // Capture console output
+            var originalOut = Console.Out;
+            using var stringWriter = new StringWriter();
+            Console.SetOut(stringWriter);
 
-            // Assert
-            Assert.True(File.Exists(expectedFilePath));
-            
-            var content = File.ReadAllText(expectedFilePath);
-            Assert.Contains("# COPILOT CONTEXT FILE - DO NOT MODIFY", content);
-            Assert.Contains("## MARKDOWN_FILE_TRACKING", content);
+            try
+            {
+                // Act
+                ProgramUtilities.InitializeCopilotContextFile();
+
+                // Assert
+                Assert.True(File.Exists(expectedFilePath));
+                
+                var content = File.ReadAllText(expectedFilePath);
+                Assert.Contains("# COPILOT CONTEXT FILE - DO NOT MODIFY", content);
+                Assert.Contains("## MARKDOWN_FILE_TRACKING", content);
+                
+                // Verify install messages
+                var output = stringWriter.ToString();
+                Assert.Contains("⚠️  IMPORTANT: Installing JiraTools for the first time", output);
+                Assert.Contains("📖 AGENTS: Please read the copilot-context.md file for usage guidance and tool capabilities", output);
+                Assert.Contains("✅ Copilot context file created:", output);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+            }
         }
 
         [Fact]
@@ -80,12 +98,30 @@ namespace JiraTools.Tests.Core
             var originalContent = "Original content that should not be overwritten";
             File.WriteAllText(filePath, originalContent);
 
-            // Act
-            ProgramUtilities.InitializeCopilotContextFile();
+            // Capture console output
+            var originalOut = Console.Out;
+            using var stringWriter = new StringWriter();
+            Console.SetOut(stringWriter);
 
-            // Assert
-            var content = File.ReadAllText(filePath);
-            Assert.Equal(originalContent, content);
+            try
+            {
+                // Act
+                ProgramUtilities.InitializeCopilotContextFile();
+
+                // Assert
+                var content = File.ReadAllText(filePath);
+                Assert.Equal(originalContent, content);
+                
+                // Verify no install messages when file already exists
+                var output = stringWriter.ToString();
+                Assert.DoesNotContain("⚠️  IMPORTANT: Installing JiraTools for the first time", output);
+                Assert.DoesNotContain("📖 AGENTS: Please read the copilot-context.md file for usage guidance and tool capabilities", output);
+                Assert.DoesNotContain("✅ Copilot context file created:", output);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+            }
         }
 
         [Fact]
