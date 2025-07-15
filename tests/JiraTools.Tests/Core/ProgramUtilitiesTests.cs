@@ -15,10 +15,10 @@ namespace JiraTools.Tests.Core
             // Create a temporary directory for testing in a safe location
             _tempDirectory = Path.Combine(Directory.GetCurrentDirectory(), "test-temp", Guid.NewGuid().ToString());
             Directory.CreateDirectory(_tempDirectory);
-            
+
             // Store original current directory
             _originalCurrentDirectory = Directory.GetCurrentDirectory();
-            
+
             // Change to temp directory for tests
             Directory.SetCurrentDirectory(_tempDirectory);
         }
@@ -37,7 +37,7 @@ namespace JiraTools.Tests.Core
             {
                 // Ignore cleanup errors
             }
-            
+
             try
             {
                 // Restore original current directory
@@ -57,7 +57,7 @@ namespace JiraTools.Tests.Core
         {
             // Arrange
             var expectedFilePath = Path.Combine(_tempDirectory, "copilot-context.md");
-            
+
             // Ensure file doesn't exist
             Assert.False(File.Exists(expectedFilePath));
 
@@ -73,11 +73,11 @@ namespace JiraTools.Tests.Core
 
                 // Assert
                 Assert.True(File.Exists(expectedFilePath));
-                
+
                 var content = File.ReadAllText(expectedFilePath);
                 Assert.Contains("# COPILOT CONTEXT FILE - DO NOT MODIFY", content);
                 Assert.Contains("## MARKDOWN_FILE_TRACKING", content);
-                
+
                 // Verify install messages
                 var output = stringWriter.ToString();
                 Assert.Contains("⚠️  IMPORTANT: Installing JiraTools for the first time", output);
@@ -111,7 +111,7 @@ namespace JiraTools.Tests.Core
                 // Assert
                 var content = File.ReadAllText(filePath);
                 Assert.Equal(originalContent, content);
-                
+
                 // Verify no install messages when file already exists
                 var output = stringWriter.ToString();
                 Assert.DoesNotContain("⚠️  IMPORTANT: Installing JiraTools for the first time", output);
@@ -179,8 +179,8 @@ namespace JiraTools.Tests.Core
         public void PromptForCredentials_WithCredentials_ShouldNotThrow()
         {
             // Arrange
-            var options = new CommandLineOptions 
-            { 
+            var options = new CommandLineOptions
+            {
                 Username = "test@example.com",
                 ApiToken = "test-token"
             };

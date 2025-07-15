@@ -15,7 +15,7 @@ namespace JiraTools.Commands
     /// </summary>
     public class CreateTaskCommand : BaseCommand
     {
-        public CreateTaskCommand(IJiraClient jiraClient, CommandLineOptions options, ILogger logger = null) 
+        public CreateTaskCommand(IJiraClient jiraClient, CommandLineOptions options, ILogger logger = null)
             : base(jiraClient, options, logger)
         {
         }
@@ -99,7 +99,7 @@ namespace JiraTools.Commands
                     _options.WorkClassification = "Maintenance";
                 }
             }
-            
+
             return true;
         }
 
@@ -194,7 +194,7 @@ namespace JiraTools.Commands
                 }
                 _options.Description = PromptForMultiLineInput("Enter task description");
             }
-            
+
             return true;
         }
 
@@ -202,7 +202,7 @@ namespace JiraTools.Commands
         {
             // Prepare components for the call
             string[] components = validComponents.Count > 0 ? validComponents.ToArray() : null;
-            
+
             // Use the IJiraClient interface instead of direct HTTP calls
             string issueKey = await _jiraClient.CreateIssueAsync(
                 _options.ProjectKey,
@@ -211,7 +211,7 @@ namespace JiraTools.Commands
                 _options.IssueType ?? "Task",
                 components
             );
-            
+
             _logger?.LogCommandSuccess(CommandName, $"Issue created: {_options.JiraUrl}/browse/{issueKey}");
 
             // Link to parent task if needed

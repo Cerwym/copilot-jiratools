@@ -154,7 +154,7 @@ namespace JiraTools
                         options.LinkToParent = true;
                         break;
                     case "--parent-task":
-                        if (i + 1 < args.Length) 
+                        if (i + 1 < args.Length)
                         {
                             options.ParentTask = args[++i];
                             options.LinkToParent = true;
@@ -199,7 +199,7 @@ namespace JiraTools
                 if (line.StartsWith("#") || string.IsNullOrWhiteSpace(line))
                     continue; // Skip comments and empty lines
 
-                var parts = line.Split(new char[] {'='}, 2);
+                var parts = line.Split(new char[] { '=' }, 2);
                 if (parts.Length != 2)
                     continue; // Invalid line format
 

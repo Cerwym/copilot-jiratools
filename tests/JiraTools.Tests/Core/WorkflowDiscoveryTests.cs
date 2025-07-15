@@ -21,11 +21,11 @@ namespace JiraTools.Tests.Core
         {
             _mockJiraClient = new Mock<IJiraClient>();
             _mockLogger = new Mock<ILogger>();
-            
+
             // Create a temporary directory for cache files
             _tempCacheDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
             Directory.CreateDirectory(_tempCacheDirectory);
-            
+
             // We need to test with a real instance to test file operations
             _workflowDiscovery = new WorkflowDiscovery(_mockJiraClient.Object, "TEST", _mockLogger.Object);
         }
@@ -81,14 +81,14 @@ namespace JiraTools.Tests.Core
                               }
                           });
             _mockJiraClient.Setup(x => x.GetAvailableTransitionsAsync(It.IsAny<string>()))
-                          .ReturnsAsync(new Dictionary<string, string> 
-                          { 
+                          .ReturnsAsync(new Dictionary<string, string>
+                          {
                               { "11", "In Progress" },
                               { "21", "Done" }
                           });
 
             // Act & Assert
-            var exception = await Record.ExceptionAsync(async () => 
+            var exception = await Record.ExceptionAsync(async () =>
                 await _workflowDiscovery.DiscoverWorkflowAsync("TEST-123", "Done"));
             Assert.Null(exception);
         }
@@ -112,7 +112,7 @@ namespace JiraTools.Tests.Core
                           });
 
             // Act & Assert
-            var exception = await Record.ExceptionAsync(async () => 
+            var exception = await Record.ExceptionAsync(async () =>
                 await _workflowDiscovery.GetWorkflowPathAsync("TEST-123", "Done"));
             Assert.Null(exception);
         }
@@ -121,7 +121,7 @@ namespace JiraTools.Tests.Core
         public async Task DiscoverWorkflowAsync_WithNullIssueKey_ShouldThrow()
         {
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentException>(async () => 
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
                 await _workflowDiscovery.DiscoverWorkflowAsync(null, "Done"));
         }
 
@@ -129,7 +129,7 @@ namespace JiraTools.Tests.Core
         public async Task DiscoverWorkflowAsync_WithEmptyIssueKey_ShouldThrow()
         {
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentException>(async () => 
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
                 await _workflowDiscovery.DiscoverWorkflowAsync("", "Done"));
         }
 
@@ -137,7 +137,7 @@ namespace JiraTools.Tests.Core
         public async Task GetWorkflowPathAsync_WithNullIssueKey_ShouldThrow()
         {
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentException>(async () => 
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
                 await _workflowDiscovery.GetWorkflowPathAsync(null, "Done"));
         }
 
@@ -145,7 +145,7 @@ namespace JiraTools.Tests.Core
         public async Task GetWorkflowPathAsync_WithEmptyIssueKey_ShouldThrow()
         {
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentException>(async () => 
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
                 await _workflowDiscovery.GetWorkflowPathAsync("", "Done"));
         }
 
@@ -153,7 +153,7 @@ namespace JiraTools.Tests.Core
         public async Task ExecuteWorkflowAsync_WithNullPath_ShouldThrow()
         {
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentNullException>(async () => 
+            await Assert.ThrowsAsync<ArgumentNullException>(async () =>
                 await _workflowDiscovery.ExecuteWorkflowAsync("TEST-123", null));
         }
 
@@ -176,7 +176,7 @@ namespace JiraTools.Tests.Core
             };
 
             // Act & Assert
-            await Assert.ThrowsAsync<ArgumentException>(async () => 
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
                 await _workflowDiscovery.ExecuteWorkflowAsync(null, workflowPath));
         }
 

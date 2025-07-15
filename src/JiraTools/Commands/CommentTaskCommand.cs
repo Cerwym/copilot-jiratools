@@ -16,17 +16,17 @@ namespace JiraTools.Commands
     {
         private readonly IProjectConfigurationProvider _configurationProvider;
 
-        public CommentTaskCommand(IJiraClient jiraClient, 
+        public CommentTaskCommand(IJiraClient jiraClient,
                                  IProjectConfigurationProvider configurationProvider,
-                                 CommandLineOptions options, 
-                                 ILogger? logger = null) 
+                                 CommandLineOptions options,
+                                 ILogger? logger = null)
             : base(jiraClient, options, logger)
         {
             _configurationProvider = configurationProvider ?? throw new ArgumentNullException(nameof(configurationProvider));
         }
 
         // Backward compatibility constructor for existing code
-        public CommentTaskCommand(IJiraClient jiraClient, CommandLineOptions options, ILogger? logger = null) 
+        public CommentTaskCommand(IJiraClient jiraClient, CommandLineOptions options, ILogger? logger = null)
             : this(jiraClient, ProjectConfigurationProviderFactory.CreateProvider(options?.StatusDocPath, logger), options ?? throw new ArgumentNullException(nameof(options)), logger)
         {
         }
@@ -40,26 +40,26 @@ namespace JiraTools.Commands
             try
             {
                 _logger?.LogInformation("Loading project configuration...");
-                
+
                 // Load configuration using our new provider system
                 var configuration = await _configurationProvider.LoadAsync(_options.StatusDocPath);
-                
+
                 if (configuration.Projects.Count == 0)
                 {
                     _logger?.LogWarning("No projects found in configuration.");
-                    
+
                     // If no projects found, check if configuration exists
                     if (!await _configurationProvider.ExistsAsync(_options.StatusDocPath))
                     {
-                        _logger?.LogError("Configuration file not found at {ConfigPath}", 
+                        _logger?.LogError("Configuration file not found at {ConfigPath}",
                             _options.StatusDocPath ?? _configurationProvider.GetDefaultConfigPath());
-                        
+
                         if (_options.NonInteractive)
                         {
                             _logger?.LogError("Running in non-interactive mode, cannot prompt for configuration path.");
                             return false;
                         }
-                        
+
                         // Could add interactive config creation here in the future
                         _logger?.LogError("Please create a configuration file or use markdown table format.");
                         return false;
@@ -113,14 +113,14 @@ namespace JiraTools.Commands
             for (int i = 0; i < projects.Count; i++)
             {
                 var project = projects[i];
-                _logger?.LogInformation("{Index}. {ProjectName} (Jira: {JiraTask}) - {Status}", 
+                _logger?.LogInformation("{Index}. {ProjectName} (Jira: {JiraTask}) - {Status}",
                     i + 1, project.Name, project.JiraTaskId, project.Status);
             }
 
             ProjectInfo? selectedProject = null;
             if (!string.IsNullOrEmpty(_options.ProjectKey))
             {
-                selectedProject = projects.FirstOrDefault(p => 
+                selectedProject = projects.FirstOrDefault(p =>
                     p.Name.Equals(_options.ProjectKey, StringComparison.OrdinalIgnoreCase) ||
                     p.Id.Equals(_options.ProjectKey, StringComparison.OrdinalIgnoreCase));
 
@@ -137,10 +137,10 @@ namespace JiraTools.Commands
                     _logger?.LogError("No matching project found and running in non-interactive mode.");
                     return null;
                 }
-                
-                var projectIndex = SelectFromList(projects.ToList(), "Select project", 
+
+                var projectIndex = SelectFromList(projects.ToList(), "Select project",
                     p => $"{p.Name} (Jira: {p.JiraTaskId}) - {p.Status}", _logger);
-                
+
                 if (projectIndex >= 0 && projectIndex < projects.Count)
                 {
                     selectedProject = projects[projectIndex];
@@ -158,7 +158,7 @@ namespace JiraTools.Commands
 
             // Add comment to the project
             selectedProject.AddComment(_options.Comment, Environment.UserName);
-            _logger?.LogInformation("Added comment to project '{ProjectName}': {Comment}", 
+            _logger?.LogInformation("Added comment to project '{ProjectName}': {Comment}",
                 selectedProject.Name, formattedComment);
 
             // Save the updated configuration
@@ -173,8 +173,8 @@ namespace JiraTools.Commands
             }
 
             // If there's an associated Jira task, also add the comment there
-            if (!string.IsNullOrEmpty(selectedProject.JiraTaskId) && 
-                selectedProject.JiraTaskId != "N/A" && 
+            if (!string.IsNullOrEmpty(selectedProject.JiraTaskId) &&
+                selectedProject.JiraTaskId != "N/A" &&
                 selectedProject.JiraTaskId.Contains("-"))
             {
                 _logger?.LogInformation("Adding comment to Jira task {JiraTask}...", selectedProject.JiraTaskId);
@@ -183,7 +183,7 @@ namespace JiraTools.Commands
                     // Add a reference to the configuration in the Jira comment
                     string jiraComment = $"{_options.Comment}\n\n_This comment was added via JiraTools from the project configuration._";
                     await _jiraClient.AddCommentAsync(selectedProject.JiraTaskId, jiraComment);
-                    _logger?.LogInformation("Comment added to Jira task: {JiraUrl}/browse/{JiraTask}", 
+                    _logger?.LogInformation("Comment added to Jira task: {JiraUrl}/browse/{JiraTask}",
                         _options.JiraUrl, selectedProject.JiraTaskId);
                 }
                 catch (Exception ex)

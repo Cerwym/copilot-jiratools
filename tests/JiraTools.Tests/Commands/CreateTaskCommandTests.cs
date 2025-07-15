@@ -87,7 +87,7 @@ namespace JiraTools.Tests.Commands
             {
                 { "customfield_12345", "Work Classification" }
             };
-            
+
             _mockJiraClient.Setup(x => x.GetRequiredFieldsAsync(It.IsAny<string>(), It.IsAny<string>()))
                           .ReturnsAsync(requiredFields);
             _mockJiraClient.Setup(x => x.GetAvailableComponentsAsync(It.IsAny<string>()))

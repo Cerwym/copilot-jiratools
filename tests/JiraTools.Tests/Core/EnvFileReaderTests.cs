@@ -169,7 +169,7 @@ TABS_AND_SPACES=	value	with	tabs
             // This test verifies the default parameter behavior
             // Since we can't easily create a .env file in the test directory without side effects,
             // we just verify that it doesn't throw when calling with default parameter
-            
+
             // Act & Assert (should not throw)
             var exception = Record.Exception(() => EnvFileReader.ReadEnvFile());
             Assert.Null(exception);

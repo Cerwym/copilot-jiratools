@@ -79,13 +79,13 @@ namespace JiraTools.Tests.Core
         // Note: Testing HTTP operations would require more complex mocking of HttpClient
         // which is challenging with the current implementation. In a production environment,
         // we would typically inject HttpClient or use an HTTP client factory for better testability.
-        
+
         [Fact]
         public void Constructor_AuthenticationHeader_ShouldBeSetCorrectly()
         {
             // Arrange & Act
             var client = new JiraClient(BaseUrl, Username, ApiToken, _mockLogger.Object);
-            
+
             // Assert - We can't directly test the authentication header without exposing HttpClient,
             // but we can verify the constructor doesn't throw and the object is created
             Assert.NotNull(client);

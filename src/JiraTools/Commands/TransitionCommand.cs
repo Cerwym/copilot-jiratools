@@ -11,7 +11,7 @@ namespace JiraTools.Commands
     /// </summary>
     public class TransitionCommand : BaseCommand
     {
-        public TransitionCommand(IJiraClient jiraClient, CommandLineOptions options, ILogger logger = null) 
+        public TransitionCommand(IJiraClient jiraClient, CommandLineOptions options, ILogger logger = null)
             : base(jiraClient, options, logger)
         {
         }
@@ -117,7 +117,7 @@ namespace JiraTools.Commands
                     {
                         // Interactive mode - allow selection by number or name
                         int selectedIndex = SelectFromList(availableTransitions, "Enter transition number or name (or press Enter to exit)", null, _logger);
-                        
+
                         if (selectedIndex >= 0)
                         {
                             transitionName = availableTransitions[selectedIndex];
@@ -132,9 +132,9 @@ namespace JiraTools.Commands
                 }
 
                 // Check if the transition name is valid (case-insensitive)
-                var matchingTransition = transitions.FirstOrDefault(t => 
+                var matchingTransition = transitions.FirstOrDefault(t =>
                     string.Equals(t.Key, transitionName, StringComparison.OrdinalIgnoreCase));
-                
+
                 if (!string.IsNullOrEmpty(matchingTransition.Key))
                 {
                     var transitionId = matchingTransition.Value;
@@ -144,7 +144,7 @@ namespace JiraTools.Commands
                     if (retryAttempts == 0 && !_options.SkipConfirmation && !_options.NonInteractive)
                     {
                         proceedWithTransition = ConfirmAction($"Are you sure you want to transition {_options.IssueKey} from '{currentStatus}' to '{transitionName}'?");
-                        
+
                         if (!proceedWithTransition)
                         {
                             _logger?.LogInformation("Transition cancelled by user.");
@@ -219,7 +219,7 @@ namespace JiraTools.Commands
                     }
 
                     int selectedIndex = SelectFromList(availableTransitions, "Please select a valid transition", null, _logger);
-                    
+
                     if (selectedIndex >= 0)
                     {
                         _options.TransitionName = availableTransitions[selectedIndex];

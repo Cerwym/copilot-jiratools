@@ -80,7 +80,7 @@ namespace JiraTools.Commands
         /// <returns>True if the command exists, false otherwise</returns>
         public bool CommandExists(string commandName)
         {
-            return !string.IsNullOrEmpty(commandName) && 
+            return !string.IsNullOrEmpty(commandName) &&
                    (_commandCreators.ContainsKey(commandName) || _standaloneCommandCreators.ContainsKey(commandName));
         }
 

@@ -22,7 +22,7 @@ namespace JiraTools.Configuration
 
             // Determine provider type based on file extension
             var extension = Path.GetExtension(configPath).ToLowerInvariant();
-            
+
             return extension switch
             {
                 ".md" => new MarkdownProjectConfigurationProvider(logger, configPath),
@@ -46,7 +46,7 @@ namespace JiraTools.Configuration
         private static IProjectConfigurationProvider CreateAutoDetectedProvider(ILogger? logger)
         {
             var currentDir = Directory.GetCurrentDirectory();
-            
+
             // Look for configuration files in order of preference
             var configPaths = new[]
             {

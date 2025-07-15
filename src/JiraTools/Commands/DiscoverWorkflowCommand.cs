@@ -10,7 +10,7 @@ namespace JiraTools.Commands
     /// </summary>
     public class DiscoverWorkflowCommand : BaseCommand
     {
-        public DiscoverWorkflowCommand(IJiraClient jiraClient, CommandLineOptions options, ILogger logger = null) 
+        public DiscoverWorkflowCommand(IJiraClient jiraClient, CommandLineOptions options, ILogger logger = null)
             : base(jiraClient, options, logger)
         {
         }
@@ -40,7 +40,7 @@ namespace JiraTools.Commands
                 }
 
                 var discovery = new WorkflowDiscovery(_jiraClient, _options.ProjectKey, _logger);
-                
+
                 // Get target status from user if not provided
                 var targetStatus = _options.TransitionName ?? "Done";
                 if (string.IsNullOrEmpty(_options.TransitionName))
@@ -67,7 +67,7 @@ namespace JiraTools.Commands
                         var step = workflowPath.Steps[i];
                         _logger?.LogInformation("  {StepNumber}. {FromStatus} → {ToStatus} (via '{TransitionName}')", i + 1, step.FromStatus, step.ToStatus, step.TransitionName);
                     }
-                    
+
                     _logger?.LogInformation("Workflow cached for future use. You can now use:");
                     _logger?.LogInformation("  jiratools complete --issue-key {IssueKey} --target {TargetStatus}", _options.IssueKey, targetStatus);
 

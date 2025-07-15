@@ -179,9 +179,9 @@ namespace JiraTools.Tests.Integration
             {
                 var requiresJiraClient = commandName != "help";
                 var jiraClient = requiresJiraClient ? _mockJiraClient.Object : null;
-                
+
                 var command = _commandFactory.CreateCommand(commandName, jiraClient, options, _mockLogger.Object);
-                
+
                 Assert.NotNull(command);
                 Assert.Equal(commandName, command.CommandName);
                 Assert.True(_commandFactory.CommandExists(commandName));

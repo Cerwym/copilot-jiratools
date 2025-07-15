@@ -73,8 +73,8 @@ namespace JiraTools.Tests.Commands
 
             // Assert
             Assert.True(result);
-            _mockJiraClient.Verify(x => x.UpdateIssueAsync("TEST-123", 
-                It.Is<Dictionary<string, object>>(d => d.ContainsKey("summary") && !d.ContainsKey("description"))), 
+            _mockJiraClient.Verify(x => x.UpdateIssueAsync("TEST-123",
+                It.Is<Dictionary<string, object>>(d => d.ContainsKey("summary") && !d.ContainsKey("description"))),
                 Times.Once);
         }
 
@@ -93,8 +93,8 @@ namespace JiraTools.Tests.Commands
 
             // Assert
             Assert.True(result);
-            _mockJiraClient.Verify(x => x.UpdateIssueAsync("TEST-123", 
-                It.Is<Dictionary<string, object>>(d => !d.ContainsKey("summary") && d.ContainsKey("description"))), 
+            _mockJiraClient.Verify(x => x.UpdateIssueAsync("TEST-123",
+                It.Is<Dictionary<string, object>>(d => !d.ContainsKey("summary") && d.ContainsKey("description"))),
                 Times.Once);
         }
 

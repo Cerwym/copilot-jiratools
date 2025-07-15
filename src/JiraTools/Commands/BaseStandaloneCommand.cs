@@ -135,7 +135,7 @@ namespace JiraTools.Commands
             }
 
             Console.Write("Select option (enter number): ");
-            if (int.TryParse(Console.ReadLine(), out int selection) && 
+            if (int.TryParse(Console.ReadLine(), out int selection) &&
                 selection > 0 && selection <= options.Count)
             {
                 return selection - 1;
