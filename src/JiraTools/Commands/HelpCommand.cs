@@ -12,7 +12,7 @@ namespace JiraTools.Commands
     {
         private readonly CommandFactory _commandFactory;
 
-        public HelpCommand(CommandLineOptions options, CommandFactory commandFactory, ILogger logger = null) 
+        public HelpCommand(CommandLineOptions options, CommandFactory commandFactory, ILogger logger = null)
             : base(options, logger)
         {
             _commandFactory = commandFactory;
@@ -33,7 +33,7 @@ namespace JiraTools.Commands
             _logger?.LogInformation("JiraTools - Generic tool for interacting with Jira");
             _logger?.LogInformation("");
             _logger?.LogInformation("Commands:");
-            
+
             // Get all commands and show their descriptions
             var commands = _commandFactory.GetCommandMetadata();
             foreach (var command in commands)

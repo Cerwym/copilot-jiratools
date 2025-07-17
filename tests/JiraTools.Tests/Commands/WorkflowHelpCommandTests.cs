@@ -41,13 +41,13 @@ namespace JiraTools.Tests.Commands
             _mockJiraClient.Setup(x => x.GetAvailableTransitionsAsync(It.IsAny<string>()))
                           .ReturnsAsync(new Dictionary<string, string> { { "In Progress", "11" }, { "Done", "31" }, { "In Review", "21" } });
             _mockJiraClient.Setup(x => x.GetDetailedTransitionsAsync(It.IsAny<string>()))
-                          .ReturnsAsync(new Dictionary<string, TransitionDetails> 
-                          { 
+                          .ReturnsAsync(new Dictionary<string, TransitionDetails>
+                          {
                               { "In Progress", new TransitionDetails { Id = "11", Name = "In Progress", ToStatusName = "In Progress" } },
                               { "Done", new TransitionDetails { Id = "31", Name = "Done", ToStatusName = "Done" } },
                               { "In Review", new TransitionDetails { Id = "21", Name = "In Review", ToStatusName = "In Review" } }
                           });
-            
+
             var command = new WorkflowHelpCommand(_mockJiraClient.Object, _options, _mockLogger.Object);
 
             // Act

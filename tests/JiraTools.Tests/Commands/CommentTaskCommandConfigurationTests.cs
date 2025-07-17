@@ -55,13 +55,13 @@ public class CommentTaskCommandConfigurationTests
 
         // Assert
         Assert.True(result);
-        
+
         // Verify the correct Jira task was used
         _mockJiraClient.Verify(x => x.AddCommentAsync("TEST-123", It.IsAny<string>()), Times.Once);
-        
+
         // Verify the comment was properly formatted with date prefix
         _mockJiraClient.Verify(x => x.AddCommentAsync(
-            It.IsAny<string>(), 
+            It.IsAny<string>(),
             It.Is<string>(comment => comment.Contains("Test comment using new configuration system"))
         ), Times.Once);
     }
@@ -89,7 +89,7 @@ public class CommentTaskCommandConfigurationTests
 
         // Assert - Should fail in non-interactive mode without project selection
         Assert.False(result);
-        
+
         // Verify no Jira API calls were made
         _mockJiraClient.Verify(x => x.AddCommentAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
@@ -174,11 +174,11 @@ public class CommentTaskCommandConfigurationTests
 
         // Assert
         Assert.True(result);
-        
+
         // Verify configuration was saved
         var updatedConfig = await provider.LoadAsync();
         var updatedProject = updatedConfig.Projects.First(p => p.Id == "test-project");
-        
+
         // The comment should be added to the project
         Assert.Single(updatedProject.Comments);
         Assert.Contains("Test comment that should be saved", updatedProject.Comments.First().Text);

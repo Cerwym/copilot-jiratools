@@ -44,7 +44,7 @@ namespace JiraTools.Commands
         {
             if (parameters != null)
             {
-                logger?.LogDebug("API Operation: {Operation} to {Endpoint} with parameters {Parameters}", 
+                logger?.LogDebug("API Operation: {Operation} to {Endpoint} with parameters {Parameters}",
                     operation, endpoint, parameters);
             }
             else
@@ -74,7 +74,7 @@ namespace JiraTools.Commands
         /// </summary>
         public static void LogWorkflowOperation(this ILogger logger, string issueKey, string fromStatus, string toStatus, string transitionName)
         {
-            logger?.LogInformation("Workflow transition for {IssueKey}: {FromStatus} → {ToStatus} via '{TransitionName}'", 
+            logger?.LogInformation("Workflow transition for {IssueKey}: {FromStatus} → {ToStatus} via '{TransitionName}'",
                 issueKey, fromStatus, toStatus, transitionName);
         }
 

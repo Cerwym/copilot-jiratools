@@ -21,7 +21,7 @@ namespace JiraTools
                 // Set up dependency injection and logging (initial setup without JiraClient)
                 var services = new ServiceCollection();
                 ConfigureServices(services);
-                
+
                 using var serviceProvider = services.BuildServiceProvider();
                 var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
 
@@ -68,7 +68,7 @@ namespace JiraTools
                 // Now set up services with JiraClient
                 var servicesWithJira = new ServiceCollection();
                 ConfigureServices(servicesWithJira, options);
-                
+
                 using var serviceProviderWithJira = servicesWithJira.BuildServiceProvider();
                 var jiraClient = serviceProviderWithJira.GetRequiredService<IJiraClient>();
                 var commandFactoryWithJira = serviceProviderWithJira.GetRequiredService<CommandFactory>();
@@ -76,7 +76,7 @@ namespace JiraTools
 
                 // Create and execute the command
                 var command = commandFactoryWithJira.CreateCommand(options.Command, jiraClient, options, loggerWithJira);
-                
+
                 if (command == null)
                 {
                     logger.LogError("Failed to create command '{Command}'.", options.Command);
@@ -92,7 +92,7 @@ namespace JiraTools
 
                 // Execute the command
                 bool success = await command.ExecuteAsync();
-                
+
                 if (!success)
                 {
                     logger.LogError("Command '{Command}' failed to execute successfully.", options.Command);
@@ -105,7 +105,7 @@ namespace JiraTools
                 ConfigureServices(services);
                 using var serviceProvider = services.BuildServiceProvider();
                 var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
-                
+
                 logger.LogError(ex, "Error: {Message}", ex.Message);
                 Environment.Exit(1);
             }
@@ -128,7 +128,7 @@ namespace JiraTools
             services.AddSingleton<CommandFactory>();
 
             // Register JiraClient as a factory if credentials are available
-            if (options != null && !string.IsNullOrEmpty(options.JiraUrl) && 
+            if (options != null && !string.IsNullOrEmpty(options.JiraUrl) &&
                 !string.IsNullOrEmpty(options.Username) && !string.IsNullOrEmpty(options.ApiToken))
             {
                 services.AddSingleton<IJiraClient>(serviceProvider =>

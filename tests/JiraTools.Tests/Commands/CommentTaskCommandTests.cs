@@ -15,14 +15,14 @@ namespace JiraTools.Tests.Commands
         public CommentTaskCommandTests()
         {
             _bootstrapper = new TestBootstrapper(nameof(CommentTaskCommandTests));
-            
+
             // Create a temporary directory for testing in a safe location
             _tempDirectory = Path.Combine(_bootstrapper.TestDirectory, "status-docs");
             Directory.CreateDirectory(_tempDirectory);
-            
+
             // Store original current directory
             _originalCurrentDirectory = Directory.GetCurrentDirectory();
-            
+
             // Setup comment-specific mocks
             _bootstrapper.SetupCommentMocks();
         }
@@ -45,15 +45,15 @@ namespace JiraTools.Tests.Commands
                 Directory.CreateDirectory(directoryPath);
             }
             File.WriteAllText(statusDocPath, statusContent);
-            
+
             // Verify file was created
             Assert.True(File.Exists(statusDocPath), $"File should exist at: {statusDocPath}");
-            
+
             _bootstrapper.Options.StatusDocPath = statusDocPath;
             _bootstrapper.Options.Comment = "Test comment";
             _bootstrapper.Options.ProjectKey = "Test Project"; // Auto-select the project
             _bootstrapper.Options.NonInteractive = true; // Prevent prompting
-            
+
             var command = new CommentTaskCommand(_bootstrapper.MockJiraClient.Object, _bootstrapper.Options, _bootstrapper.MockLogger.Object);
 
             // Act
@@ -103,7 +103,7 @@ namespace JiraTools.Tests.Commands
             // Arrange
             var statusDocPath = Path.Combine(_tempDirectory, "empty.md");
             File.WriteAllText(statusDocPath, "");
-            
+
             _bootstrapper.Options.StatusDocPath = statusDocPath;
             var command = new CommentTaskCommand(_bootstrapper.MockJiraClient.Object, _bootstrapper.Options, _bootstrapper.MockLogger.Object);
 
@@ -126,7 +126,7 @@ namespace JiraTools.Tests.Commands
 | Some data here |
 ";
             File.WriteAllText(statusDocPath, statusContent);
-            
+
             _bootstrapper.Options.StatusDocPath = statusDocPath;
             var command = new CommentTaskCommand(_bootstrapper.MockJiraClient.Object, _bootstrapper.Options, _bootstrapper.MockLogger.Object);
 
@@ -143,7 +143,7 @@ namespace JiraTools.Tests.Commands
             {
                 // Restore original current directory
                 Directory.SetCurrentDirectory(_originalCurrentDirectory);
-                
+
                 // Clean up through bootstrapper
                 _bootstrapper?.Dispose();
             }

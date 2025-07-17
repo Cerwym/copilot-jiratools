@@ -14,7 +14,7 @@ namespace JiraTools.Tests.Utils
     {
         private readonly string _testDirectory;
         private readonly string _originalJiraToolsPath;
-        
+
         public string TestDirectory => _testDirectory;
         public Mock<IJiraClient> MockJiraClient { get; }
         public Mock<ILogger> MockLogger { get; }
@@ -31,14 +31,14 @@ namespace JiraTools.Tests.Utils
             var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             _originalJiraToolsPath = Path.Combine(userProfile, ".jiratools");
             var testJiraToolsPath = Path.Combine(_testDirectory, ".jiratools");
-            
+
             // Set environment variable to redirect cache to test directory
             Environment.SetEnvironmentVariable("JIRATOOLS_CACHE_DIR", testJiraToolsPath);
-            
+
             // Initialize mocks
             MockJiraClient = new Mock<IJiraClient>();
             MockLogger = new Mock<ILogger>();
-            
+
             // Create default options
             Options = new CommandLineOptions
             {
@@ -59,15 +59,15 @@ namespace JiraTools.Tests.Utils
             MockJiraClient.Setup(x => x.GetIssueTypeAsync(It.IsAny<string>()))
                           .ReturnsAsync("Task");
             MockJiraClient.Setup(x => x.GetAvailableTransitionsAsync(It.IsAny<string>()))
-                          .ReturnsAsync(new Dictionary<string, string> 
-                          { 
-                              { "In Progress", "11" }, 
+                          .ReturnsAsync(new Dictionary<string, string>
+                          {
+                              { "In Progress", "11" },
                               { "Done", "31" },
                               { "In Review", "21" }
                           });
             MockJiraClient.Setup(x => x.GetDetailedTransitionsAsync(It.IsAny<string>()))
-                          .ReturnsAsync(new Dictionary<string, TransitionDetails> 
-                          { 
+                          .ReturnsAsync(new Dictionary<string, TransitionDetails>
+                          {
                               { "In Progress", new TransitionDetails { Id = "11", Name = "In Progress", ToStatusName = "In Progress" } },
                               { "Done", new TransitionDetails { Id = "31", Name = "Done", ToStatusName = "Done" } },
                               { "In Review", new TransitionDetails { Id = "21", Name = "In Review", ToStatusName = "In Review" } }
@@ -99,7 +99,7 @@ namespace JiraTools.Tests.Utils
             {
                 // Clean up environment variable
                 Environment.SetEnvironmentVariable("JIRATOOLS_CACHE_DIR", null);
-                
+
                 // Clean up test directory
                 if (Directory.Exists(_testDirectory))
                 {

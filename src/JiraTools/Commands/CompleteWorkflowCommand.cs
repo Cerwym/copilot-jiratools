@@ -10,7 +10,7 @@ namespace JiraTools.Commands
     /// </summary>
     public class CompleteWorkflowCommand : BaseCommand
     {
-        public CompleteWorkflowCommand(IJiraClient jiraClient, CommandLineOptions options, ILogger logger = null) 
+        public CompleteWorkflowCommand(IJiraClient jiraClient, CommandLineOptions options, ILogger logger = null)
             : base(jiraClient, options, logger)
         {
         }
@@ -40,7 +40,7 @@ namespace JiraTools.Commands
                 }
 
                 var discovery = new WorkflowDiscovery(_jiraClient, _options.ProjectKey, _logger);
-                
+
                 // Get target status
                 var targetStatus = _options.TransitionName ?? "Done";
                 if (string.IsNullOrEmpty(_options.TransitionName) && !_options.NonInteractive)
@@ -49,7 +49,7 @@ namespace JiraTools.Commands
                 }
 
                 _logger?.LogInformation("Finding workflow path to '{TargetStatus}'...", targetStatus);
-                
+
                 // Check if already at target status
                 var currentStatus = await _jiraClient.GetIssueStatusAsync(_options.IssueKey);
                 if (currentStatus == targetStatus)
@@ -57,14 +57,14 @@ namespace JiraTools.Commands
                     _logger?.LogInformation("Issue {IssueKey} is already at status '{TargetStatus}'.", _options.IssueKey, targetStatus);
                     return true;
                 }
-                
+
                 var workflowPath = await discovery.GetWorkflowPathAsync(_options.IssueKey, targetStatus);
 
                 if (workflowPath != null && workflowPath.Steps.Any())
                 {
-                    var success = await discovery.ExecuteWorkflowAsync(_options.IssueKey, workflowPath, 
+                    var success = await discovery.ExecuteWorkflowAsync(_options.IssueKey, workflowPath,
                         !_options.NonInteractive && !_options.SkipConfirmation);
-                    
+
                     if (success)
                     {
                         _logger?.LogInformation("Successfully completed workflow to '{TargetStatus}'!", targetStatus);

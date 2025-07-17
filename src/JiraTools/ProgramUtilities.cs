@@ -27,7 +27,8 @@ namespace JiraTools
 
                 if (!File.Exists(contextFilePath))
                 {
-                    Console.WriteLine("Initializing Copilot context file...");
+                    Console.WriteLine("⚠️  IMPORTANT: Installing JiraTools for the first time");
+                    Console.WriteLine("📖 AGENTS: Please read the copilot-context.md file for usage guidance and tool capabilities");
 
                     // Create the Copilot context schema with optimized structure for AI
                     var contextContent = new StringBuilder();
@@ -63,7 +64,7 @@ namespace JiraTools
 
                     // Write the content to the file
                     File.WriteAllText(contextFilePath, contextContent.ToString());
-                    Console.WriteLine($"Copilot context file initialized at: {contextFilePath}");
+                    Console.WriteLine($"✅ Copilot context file created: {contextFilePath}");
                 }
             }
             catch (Exception ex)
@@ -153,7 +154,7 @@ namespace JiraTools
                         options.LinkToParent = true;
                         break;
                     case "--parent-task":
-                        if (i + 1 < args.Length) 
+                        if (i + 1 < args.Length)
                         {
                             options.ParentTask = args[++i];
                             options.LinkToParent = true;
@@ -198,7 +199,7 @@ namespace JiraTools
                 if (line.StartsWith("#") || string.IsNullOrWhiteSpace(line))
                     continue; // Skip comments and empty lines
 
-                var parts = line.Split(new char[] {'='}, 2);
+                var parts = line.Split(new char[] { '=' }, 2);
                 if (parts.Length != 2)
                     continue; // Invalid line format
 

@@ -27,7 +27,7 @@ namespace JiraTools.Tests.Configuration
             // Arrange
             var initialConfig = new ProjectConfiguration();
             initialConfig.AddProject(new ProjectInfo("test", "Test Project", "TEST-123"));
-            
+
             var provider = new InMemoryProjectConfigurationProvider(initialConfig);
 
             // Act
@@ -119,21 +119,21 @@ namespace JiraTools.Tests.Configuration
         {
             // Arrange
             var provider = new InMemoryProjectConfigurationProvider();
-            
+
             // Create initial configuration
             var config1 = new ProjectConfiguration();
             config1.AddProject(new ProjectInfo("proj1", "Project 1", "PROJ-123"));
-            
+
             // Act & Assert - Save and reload
             await provider.SaveAsync(config1);
             var loaded1 = await provider.LoadAsync();
             Assert.Single(loaded1.Projects);
             Assert.Equal("Project 1", loaded1.Projects[0].Name);
-            
+
             // Modify configuration
             loaded1.AddProject(new ProjectInfo("proj2", "Project 2", "PROJ-456"));
             await provider.SaveAsync(loaded1);
-            
+
             // Reload and verify
             var loaded2 = await provider.LoadAsync();
             Assert.Equal(2, loaded2.Projects.Count);

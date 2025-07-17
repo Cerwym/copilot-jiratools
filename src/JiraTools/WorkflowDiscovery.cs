@@ -22,16 +22,16 @@ namespace JiraTools
         {
             _jiraClient = jiraClient;
             _logger = logger;
-            
+
             // Create a cache file specific to the project if provided
-            var cacheFileName = string.IsNullOrEmpty(projectKey) 
-                ? "jira-workflows.json" 
+            var cacheFileName = string.IsNullOrEmpty(projectKey)
+                ? "jira-workflows.json"
                 : $"jira-workflows-{projectKey.ToLower()}.json";
-            
+
             // Allow override of cache directory for testing
-            var cacheDirectory = Environment.GetEnvironmentVariable("JIRATOOLS_CACHE_DIR") 
+            var cacheDirectory = Environment.GetEnvironmentVariable("JIRATOOLS_CACHE_DIR")
                 ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".jiratools");
-            
+
             _workflowCachePath = Path.Combine(cacheDirectory, cacheFileName);
 
             LoadCache();
@@ -49,15 +49,15 @@ namespace JiraTools
             {
                 var currentStatus = await _jiraClient.GetIssueStatusAsync(sampleIssueKey);
                 var issueType = await GetIssueTypeAsync(sampleIssueKey);
-                
-                _logger?.LogInformation("Discovering workflow for {IssueType} issues from '{CurrentStatus}' to '{TargetStatus}'...", 
+
+                _logger?.LogInformation("Discovering workflow for {IssueType} issues from '{CurrentStatus}' to '{TargetStatus}'...",
                     issueType, currentStatus, targetStatus);
 
                 var workflowPath = await TraceWorkflowPathAsync(sampleIssueKey, currentStatus, targetStatus);
-                
+
                 // Cache the discovered workflow
                 CacheWorkflow(issueType, currentStatus, targetStatus, workflowPath);
-                
+
                 return workflowPath;
             }
             catch (Exception ex)
@@ -74,7 +74,7 @@ namespace JiraTools
         {
             if (string.IsNullOrEmpty(issueKey))
                 throw new ArgumentException("Issue key cannot be null or empty", nameof(issueKey));
-            
+
             try
             {
                 var currentStatus = await _jiraClient.GetIssueStatusAsync(issueKey);
@@ -105,7 +105,7 @@ namespace JiraTools
         public List<string> GetCommonWorkflowSuggestions(string issueType, string currentStatus)
         {
             var suggestions = new List<string>();
-            
+
             // Look for cached workflows for this issue type and status
             var relevantWorkflows = _cache.Workflows
                 .Where(kv => kv.Key.StartsWith($"{issueType}:{currentStatus}:"))
@@ -128,10 +128,10 @@ namespace JiraTools
         {
             if (string.IsNullOrEmpty(issueKey))
                 throw new ArgumentException("Issue key cannot be null or empty", nameof(issueKey));
-                
+
             if (workflowPath == null)
                 throw new ArgumentNullException(nameof(workflowPath));
-            
+
             if (!workflowPath.Steps.Any())
             {
                 _logger?.LogWarning("No workflow path available to execute.");
@@ -161,12 +161,12 @@ namespace JiraTools
                 foreach (var step in workflowPath.Steps)
                 {
                     _logger?.LogInformation("Executing: {FromStatus} → {ToStatus} via '{TransitionName}'", step.FromStatus, step.ToStatus, step.TransitionName);
-                    
+
                     await _jiraClient.TransitionIssueAsync(issueKey, step.TransitionName);
-                    
+
                     // Small delay to ensure transition completes
                     await Task.Delay(1000);
-                    
+
                     // Verify the transition worked
                     var currentStatus = await _jiraClient.GetIssueStatusAsync(issueKey);
                     if (currentStatus != step.ToStatus)
@@ -197,7 +197,7 @@ namespace JiraTools
         {
             var visited = new HashSet<string>();
             var path = new List<WorkflowStep>();
-            
+
             if (await FindPathRecursive(issueKey, fromStatus, targetStatus, visited, path))
             {
                 return new WorkflowPath
@@ -214,7 +214,7 @@ namespace JiraTools
         /// <summary>
         /// Recursive function to find workflow path using DFS
         /// </summary>
-        private async Task<bool> FindPathRecursive(string issueKey, string currentStatus, string targetStatus, 
+        private async Task<bool> FindPathRecursive(string issueKey, string currentStatus, string targetStatus,
             HashSet<string> visited, List<WorkflowStep> path)
         {
             if (currentStatus == targetStatus)
@@ -228,14 +228,14 @@ namespace JiraTools
             try
             {
                 var transitions = await _jiraClient.GetAvailableTransitionsAsync(issueKey);
-                
+
                 // Try each available transition
                 foreach (var transition in transitions)
                 {
                     // We need to get the target status for each transition
                     // This is a simplified approach - in reality we might need to get more details
                     var targetStatusForTransition = await GetTransitionTargetStatus(issueKey, transition.Value);
-                    
+
                     if (!visited.Contains(targetStatusForTransition))
                     {
                         var step = new WorkflowStep
@@ -277,7 +277,7 @@ namespace JiraTools
             {
                 var detailedTransitions = await _jiraClient.GetDetailedTransitionsAsync(issueKey);
                 var transition = detailedTransitions.Values.FirstOrDefault(t => t.Id == transitionId);
-                
+
                 if (transition != null)
                 {
                     return transition.ToStatusName;

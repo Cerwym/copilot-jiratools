@@ -9,7 +9,7 @@ namespace JiraTools.Commands
     /// </summary>
     public class AddCommentCommand : BaseCommand
     {
-        public AddCommentCommand(IJiraClient jiraClient, CommandLineOptions options, ILogger logger = null) 
+        public AddCommentCommand(IJiraClient jiraClient, CommandLineOptions options, ILogger logger = null)
             : base(jiraClient, options, logger)
         {
         }

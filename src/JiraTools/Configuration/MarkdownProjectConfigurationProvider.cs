@@ -28,7 +28,7 @@ namespace JiraTools.Configuration
         public async Task<ProjectConfiguration> LoadAsync(string? configPath = null)
         {
             var filePath = configPath ?? _defaultPath;
-            
+
             if (!File.Exists(filePath))
             {
                 _logger?.LogWarning("Markdown configuration file not found at {FilePath}", filePath);
@@ -50,7 +50,7 @@ namespace JiraTools.Configuration
         public async Task SaveAsync(ProjectConfiguration configuration, string? configPath = null)
         {
             var filePath = configPath ?? _defaultPath;
-            
+
             try
             {
                 var markdownContent = GenerateMarkdownTable(configuration);
@@ -164,7 +164,7 @@ namespace JiraTools.Configuration
             {
                 var status = project.Status.ToString().Replace("InProgress", "In Progress");
                 var comments = project.GetCommentsAsString();
-                
+
                 lines.Add($"| {project.Name} | {status} | {project.JiraTaskId} | {comments} |");
             }
 

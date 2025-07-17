@@ -10,7 +10,7 @@ namespace JiraTools.Commands
     /// </summary>
     public class WorkflowHelpCommand : BaseCommand
     {
-        public WorkflowHelpCommand(IJiraClient jiraClient, CommandLineOptions options, ILogger logger = null) 
+        public WorkflowHelpCommand(IJiraClient jiraClient, CommandLineOptions options, ILogger logger = null)
             : base(jiraClient, options, logger)
         {
         }
@@ -40,16 +40,16 @@ namespace JiraTools.Commands
                 }
 
                 var discovery = new WorkflowDiscovery(_jiraClient, _options.ProjectKey, _logger);
-                
+
                 // Get current status and issue type
                 var currentStatus = await _jiraClient.GetIssueStatusAsync(_options.IssueKey);
                 var issueType = await _jiraClient.GetIssueTypeAsync(_options.IssueKey);
-                
+
                 _logger?.LogInformation("Issue: {IssueKey}", _options.IssueKey);
                 _logger?.LogInformation("Type: {IssueType}", issueType);
                 _logger?.LogInformation("Current Status: {CurrentStatus}", currentStatus);
                 _logger?.LogInformation("");
-                
+
                 // Show available transitions
                 var transitions = await _jiraClient.GetAvailableTransitionsAsync(_options.IssueKey);
                 _logger?.LogInformation("Available next transitions:");
@@ -58,7 +58,7 @@ namespace JiraTools.Commands
                     _logger?.LogInformation("  • {TransitionName}", transition.Key);
                 }
                 _logger?.LogInformation("");
-                
+
                 // Show cached workflow suggestions
                 var suggestions = discovery.GetCommonWorkflowSuggestions(issueType, currentStatus);
                 if (suggestions.Any())
@@ -70,7 +70,7 @@ namespace JiraTools.Commands
                     }
                     _logger?.LogInformation("");
                 }
-                
+
                 _logger?.LogInformation("Commands you can use:");
                 _logger?.LogInformation("  jiratools transition --issue-key {IssueKey} --transition \"<transition-name>\"", _options.IssueKey);
                 _logger?.LogInformation("  jiratools complete --issue-key {IssueKey} --transition \"<target-status>\"", _options.IssueKey);

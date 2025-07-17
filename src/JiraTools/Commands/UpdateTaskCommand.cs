@@ -10,7 +10,7 @@ namespace JiraTools.Commands
     /// </summary>
     public class UpdateTaskCommand : BaseCommand
     {
-        public UpdateTaskCommand(IJiraClient jiraClient, CommandLineOptions options, ILogger logger = null) 
+        public UpdateTaskCommand(IJiraClient jiraClient, CommandLineOptions options, ILogger logger = null)
             : base(jiraClient, options, logger)
         {
         }
@@ -67,8 +67,8 @@ namespace JiraTools.Commands
 
         public override bool ValidateParameters()
         {
-            if (string.IsNullOrEmpty(_options.IssueKey) && 
-                string.IsNullOrEmpty(_options.Summary) && 
+            if (string.IsNullOrEmpty(_options.IssueKey) &&
+                string.IsNullOrEmpty(_options.Summary) &&
                 string.IsNullOrEmpty(_options.Description))
             {
                 _logger?.LogError("Error: Issue key and at least one field to update (summary or description) are required.");
